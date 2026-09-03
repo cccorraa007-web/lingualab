@@ -1,0 +1,58 @@
+import { NextResponse } from "next/server";
+import { getSupabase } from "@/lib/supabase/client";
+import { chatReply } from "@/lib/ai/practice";
+import type { ChatMessage } from "@/lib/ai/deepseek";
+
+export const dynamic = "force-dynamic";
+export const maxDuration = 60;
+
+async function getTopicContext(topic: string): Promise<string> {
+  const supabase = getSupabase();
+  const { data: materials } = await supabase
+    .from("materials")
+    .select("id, title")
+    .contains("tags", [topic]);
+
+  if (!materials?.length) {
+    return "（暂无该话题的语料内容，请根据话题本身和常识自由提问）";
+  }
+
+  const ids = materials.map((m) => m.id);
+  const { data: cards } = await supabase
+    .from("corpus_cards")
+    .select("category, content, zh")
+    .eq("status", "saved")
+    .in("material_id", ids);
+
+  const lines: string[] = [];
+  for (const m of materials) {
+    lines.push(`文章《${m.title || "未命名"}》`);
+  }
+  for (const c of cards ?? []) {
+    lines.push(`[${c.category}] ${c.content}${c.zh ? ` (${c.zh})` : ""}`);
+  }
+  return lines.join("\n");
+}
+
+export async function POST(request: Request) {
+  let body: { topic?: string; history?: { role: string; content: string }[] };
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "请求体不是合法 JSON" }, { status: 400 });
+  }
+
+  const { topic, history } = body;
+  if (!topic) {
+    return NextResponse.json({ error: "缺少 topic" }, { status: 400 });
+  }
+
+  const messages: ChatMessage[] = (history ?? []).map((h) => ({
+    role: h.role as "user" | "assistant",
+    content: h.content,
+  }));
+
+  const context = await getTopicContext(topic);
+  const reply = await chatReply(context, messages);
+  return NextResponse.json({ reply });
+}

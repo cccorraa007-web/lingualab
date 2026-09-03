@@ -1,0 +1,267 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import type { FormEvent } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { topicName, resolveTopicSlug } from "@/lib/topics";
+
+interface Material {
+  id: string;
+  title: string | null;
+  type: string;
+  tags: string[];
+  cefr_level: string | null;
+  created_at: string;
+}
+
+export default function CorpusPage() {
+  const router = useRouter();
+  const [search, setSearch] = useState("");
+  const [materials, setMaterials] = useState<Material[]>([]);
+  const [error, setError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
+
+  const [text, setText] = useState("");
+  const [title, setTitle] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [showImport, setShowImport] = useState(false);
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    const t = setTimeout(() => {
+      let url = "/api/materials";
+      if (search.trim()) {
+        const tag = resolveTopicSlug(search);
+        url = tag
+          ? `/api/materials?tag=${tag}`
+          : `/api/materials?q=${encodeURIComponent(search.trim())}`;
+      }
+      fetch(url)
+        .then((r) => r.json())
+        .then((data) => {
+          if (cancelled) return;
+          if (data.error) setError(data.error);
+          else setMaterials(data.materials ?? []);
+        })
+        .catch((e) => {
+          if (!cancelled) setError(e instanceof Error ? e.message : String(e));
+        });
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [search, reloadKey]);
+
+  async function handleImport(e: FormEvent) {
+    e.preventDefault();
+    if (text.trim().length < 50) {
+      setError("文本太短，至少需要 50 个字符");
+      return;
+    }
+    setImporting(true);
+    setError("");
+    try {
+      const res = await fetch("/api/materials", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "text",
+          title: title.trim() || undefined,
+          text: text.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "处理失败");
+      router.push(`/corpus/review/${data.materialId}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      setImporting(false);
+    }
+  }
+
+  async function handleDelete(id: string) {
+    if (!window.confirm("确定删除这篇文章及其所有卡片吗？")) return;
+    try {
+      await fetch(`/api/materials/${id}`, { method: "DELETE" });
+      setReloadKey((k) => k + 1);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  function startRename(m: Material) {
+    setEditingId(m.id);
+    setEditTitle(m.title ?? "");
+  }
+
+  async function saveRename(id: string) {
+    try {
+      const res = await fetch(`/api/materials/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: editTitle.trim() || null }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "重命名失败");
+      setEditingId(null);
+      setReloadKey((k) => k + 1);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  return (
+    <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-zinc-900">
+            语料库
+          </h1>
+          <p className="mt-2 text-zinc-600">
+            按标签或标题检索文章，点进文章查看卡片。
+          </p>
+        </div>
+        <button
+          onClick={() => setShowImport(!showImport)}
+          className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700"
+        >
+          {showImport ? "收起" : "导入文章"}
+        </button>
+      </div>
+
+      {showImport && (
+        <form
+          onSubmit={handleImport}
+          className="mt-6 rounded-xl border border-orange-200 bg-orange-50/40 p-4"
+        >
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="文章标题（可选，留空可稍后补填）"
+            className="mb-3 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm"
+          />
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="在这里粘贴西班牙语文章（至少 50 个字符）…"
+            rows={6}
+            className="w-full rounded-xl border border-zinc-200 bg-white p-4 text-zinc-900 placeholder-zinc-400 outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
+          />
+          <div className="mt-3 flex items-center gap-3">
+            <button
+              type="submit"
+              disabled={importing}
+              className="rounded-lg bg-orange-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-50"
+            >
+              {importing ? "AI 提取中…" : "导入并提取语料"}
+            </button>
+            <span className="text-sm text-zinc-400">处理可能需要几十秒</span>
+          </div>
+        </form>
+      )}
+
+      <div className="mt-6">
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="搜索标签（如「数字经济」）或文章标题…"
+          className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
+        />
+      </div>
+
+      {error && (
+        <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
+      <div className="mt-6 space-y-3">
+        {materials.length === 0 && (
+          <div className="rounded-2xl border border-dashed border-zinc-200 p-10 text-center text-zinc-400">
+            {search ? "没有找到匹配的文章" : "还没有文章，点击「导入文章」开始"}
+          </div>
+        )}
+
+        {materials.map((m) => (
+          <div
+            key={m.id}
+            className="group rounded-xl border border-zinc-100 bg-white p-4 shadow-sm transition hover:shadow-md"
+          >
+            <div className="flex items-start gap-3">
+              <div className="min-w-0 flex-1">
+                {editingId === m.id ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      autoFocus
+                      className="flex-1 rounded-lg border border-orange-300 bg-white px-3 py-1.5 text-sm font-semibold outline-none focus:ring-2 focus:ring-orange-100"
+                    />
+                    <button
+                      onClick={() => saveRename(m.id)}
+                      className="rounded-lg bg-orange-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-orange-700"
+                    >
+                      保存
+                    </button>
+                    <button
+                      onClick={() => setEditingId(null)}
+                      className="rounded-lg border border-zinc-200 px-3 py-1.5 text-xs text-zinc-600 hover:bg-zinc-50"
+                    >
+                      取消
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Link
+                      href={`/corpus/${m.id}`}
+                      className="font-semibold text-zinc-900 hover:text-orange-700"
+                    >
+                      {m.title || "未命名文章"}
+                    </Link>
+                    <button
+                      onClick={() => startRename(m)}
+                      className="rounded px-1.5 py-0.5 text-xs text-zinc-400 hover:text-orange-600"
+                    >
+                      重命名
+                    </button>
+                    {m.cefr_level && (
+                      <span className="rounded-full border border-zinc-200 px-2 py-0.5 text-xs text-zinc-500">
+                        {m.cefr_level}
+                      </span>
+                    )}
+                  </div>
+                )}
+                {m.tags.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {m.tags.map((t) => (
+                      <span
+                        key={t}
+                        className="rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-medium text-orange-700"
+                      >
+                        {topicName(t)}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <p className="mt-2 text-xs text-zinc-400">
+                  {new Date(m.created_at).toLocaleString("zh-CN")}
+                </p>
+              </div>
+              <button
+                onClick={() => handleDelete(m.id)}
+                className="shrink-0 rounded-lg px-2 py-1 text-sm text-zinc-300 hover:bg-red-50 hover:text-red-600"
+              >
+                删除
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
