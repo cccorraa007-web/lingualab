@@ -21,10 +21,10 @@ export async function POST(
     .eq("status", "approved")
     .maybeSingle();
   if (membership?.role !== "teacher") {
-    return NextResponse.json({ error: "只有教师能指定班委" }, { status: 403 });
+    return NextResponse.json({ error: "只有教师能指定角色" }, { status: 403 });
   }
 
-  let body: { member_id?: string };
+  let body: { member_id?: string; role?: string };
   try {
     body = await request.json();
   } catch {
@@ -35,9 +35,11 @@ export async function POST(
     return NextResponse.json({ error: "缺少 member_id" }, { status: 400 });
   }
 
+  const role = body.role === "teacher" ? "teacher" : "leader";
+
   const { error } = await supabase
     .from("classroom_members")
-    .update({ role: "leader" })
+    .update({ role })
     .eq("id", body.member_id)
     .eq("classroom_id", id)
     .eq("status", "approved");

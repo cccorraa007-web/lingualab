@@ -103,14 +103,14 @@ export default function ClassroomDetailPage() {
     else load();
   }
 
-  async function promote(memberId: string) {
+  async function promote(memberId: string, role: "leader" | "teacher") {
     const res = await apiFetch(`/api/classrooms/${params.id}/promote`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ member_id: memberId }),
+      body: JSON.stringify({ member_id: memberId, role }),
     });
     const data = await res.json();
-    if (!res.ok) setError(data.error || "指定班委失败");
+    if (!res.ok) setError(data.error || "操作失败");
     else load();
   }
 
@@ -342,12 +342,20 @@ export default function ClassroomDetailPage() {
                 <p className="text-sm font-medium text-zinc-800">{m.email}</p>
               </div>
               {myRole === "teacher" && m.role === "student" && (
-                <button
-                  onClick={() => promote(m.id)}
-                  className="text-xs font-medium text-emerald-700 hover:underline"
-                >
-                  设为班委
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => promote(m.id, "leader")}
+                    className="text-xs font-medium text-emerald-700 hover:underline"
+                  >
+                    设为班委
+                  </button>
+                  <button
+                    onClick={() => promote(m.id, "teacher")}
+                    className="text-xs font-medium text-orange-700 hover:underline"
+                  >
+                    设为教师
+                  </button>
+                </div>
               )}
             </div>
           ))}

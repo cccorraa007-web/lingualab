@@ -27,23 +27,16 @@ export async function signIn(email: string, password: string): Promise<string | 
   return error ? error.message : null;
 }
 
-export type UserRole = "teacher" | "student";
-
-export function parseRole(v: unknown): UserRole {
-  return v === "teacher" ? "teacher" : "student";
-}
-
 export async function signUp(
   email: string,
   password: string,
   lang: TargetLang,
-  role: UserRole,
 ): Promise<{ error: string | null; needsConfirm: boolean }> {
   const supabase = getSupabaseBrowser();
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
-    options: { data: { target_lang: lang, role } },
+    options: { data: { target_lang: lang } },
   });
   if (error) return { error: error.message, needsConfirm: false };
   return { error: null, needsConfirm: !data.session };
@@ -52,11 +45,6 @@ export async function signUp(
 export async function setTargetLang(lang: TargetLang): Promise<void> {
   const supabase = getSupabaseBrowser();
   await supabase.auth.updateUser({ data: { target_lang: lang } });
-}
-
-export async function setRole(role: UserRole): Promise<void> {
-  const supabase = getSupabaseBrowser();
-  await supabase.auth.updateUser({ data: { role } });
 }
 
 export async function signOut(): Promise<void> {
@@ -86,9 +74,4 @@ export function useAuth(): { user: User | null; loading: boolean } {
 export function useTargetLang(): TargetLang {
   const { user } = useAuth();
   return parseTargetLang(user?.user_metadata?.target_lang);
-}
-
-export function useRole(): UserRole {
-  const { user } = useAuth();
-  return parseRole(user?.user_metadata?.role);
 }

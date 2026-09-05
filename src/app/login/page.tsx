@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { signIn, signUp, setTargetLang, type UserRole } from "@/lib/auth";
+import { signIn, signUp, setTargetLang } from "@/lib/auth";
 import { LANGS, PRODUCT_NAME, type TargetLang } from "@/lib/language";
 
 export default function LoginPage() {
@@ -11,7 +11,6 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [lang, setLang] = useState<TargetLang>("es");
-  const [role, setRole] = useState<UserRole>("student");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(false);
@@ -29,7 +28,6 @@ export default function LoginPage() {
         email.trim(),
         password,
         lang,
-        role,
       );
       setLoading(false);
       if (err) {
@@ -88,35 +86,6 @@ export default function LoginPage() {
                   {LANGS[k].label}
                 </button>
               ))}
-            </div>
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-zinc-600">
-              我的身份
-            </label>
-            <div className="mt-1 grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setRole("student")}
-                className={`rounded-lg border px-3 py-2 text-sm font-medium transition ${
-                  role === "student"
-                    ? "border-orange-400 bg-orange-50 text-orange-700"
-                    : "border-zinc-200 text-zinc-600 hover:bg-zinc-50"
-                }`}
-              >
-                学生
-              </button>
-              <button
-                type="button"
-                onClick={() => setRole("teacher")}
-                className={`rounded-lg border px-3 py-2 text-sm font-medium transition ${
-                  role === "teacher"
-                    ? "border-orange-400 bg-orange-50 text-orange-700"
-                    : "border-zinc-200 text-zinc-600 hover:bg-zinc-50"
-                }`}
-              >
-                教师
-              </button>
             </div>
           </div>
           <div>

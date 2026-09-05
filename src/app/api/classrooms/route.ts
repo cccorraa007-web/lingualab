@@ -55,12 +55,9 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const auth = await getUserClient(request);
   if (!auth) return unauthorized();
-  if (auth.user.role !== "teacher") {
-    return NextResponse.json({ error: "只有教师能创建班级" }, { status: 403 });
-  }
   const supabase = auth.client;
 
-  let body: { name?: string };
+  let body: { name?: string; role?: string };
   try {
     body = await request.json();
   } catch {
@@ -71,6 +68,7 @@ export async function POST(request: Request) {
   if (!name) {
     return NextResponse.json({ error: "缺少班级名称" }, { status: 400 });
   }
+  const role = body.role === "student" ? "student" : "teacher";
 
   const invite_code = genInviteCode();
   const { data: classroom, error: cErr } = await supabase
@@ -86,7 +84,7 @@ export async function POST(request: Request) {
     classroom_id: classroom.id,
     user_id: auth.user.id,
     email: auth.user.email ?? null,
-    role: "teacher",
+    role,
     status: "approved",
   });
   if (mErr) {

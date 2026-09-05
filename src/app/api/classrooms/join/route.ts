@@ -8,7 +8,7 @@ export async function POST(request: Request) {
   if (!auth) return unauthorized();
   const supabase = auth.client;
 
-  let body: { invite_code?: string };
+  let body: { invite_code?: string; role?: string };
   try {
     body = await request.json();
   } catch {
@@ -29,7 +29,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "邀请码无效" }, { status: 404 });
   }
 
-  const role = auth.user.role === "teacher" ? "teacher" : "student";
+  const role = body.role === "teacher" ? "teacher" : "student";
   const { data: existing } = await supabase
     .from("classroom_members")
     .select("id, status")

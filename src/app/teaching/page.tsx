@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { apiFetch, useRole } from "@/lib/auth";
+import { apiFetch } from "@/lib/auth";
 
 interface Classroom {
   id: string;
@@ -12,16 +12,17 @@ interface Classroom {
 }
 
 export default function TeachingPage() {
-  const role = useRole();
   const [classes, setClasses] = useState<Classroom[]>([]);
   const [error, setError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
 
   const [name, setName] = useState("");
+  const [createRole, setCreateRole] = useState<"teacher" | "student">("teacher");
   const [creating, setCreating] = useState(false);
   const [created, setCreated] = useState<Classroom | null>(null);
 
   const [inviteCode, setInviteCode] = useState("");
+  const [joinRole, setJoinRole] = useState<"teacher" | "student">("student");
   const [joining, setJoining] = useState(false);
   const [joinMsg, setJoinMsg] = useState("");
 
@@ -45,7 +46,7 @@ export default function TeachingPage() {
       const res = await apiFetch("/api/classrooms", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim() }),
+        body: JSON.stringify({ name: name.trim(), role: createRole }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "创建失败");
@@ -68,7 +69,7 @@ export default function TeachingPage() {
       const res = await apiFetch("/api/classrooms/join", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ invite_code: inviteCode.trim() }),
+        body: JSON.stringify({ invite_code: inviteCode.trim(), role: joinRole }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "加入失败");
@@ -88,36 +89,82 @@ export default function TeachingPage() {
       <p className="mt-2 text-zinc-600">创建或加入班级，开始班级阅读与口语教学。</p>
 
       <div className="mt-6 flex flex-wrap gap-3">
-        {role === "teacher" && (
-          <div className="flex-1 rounded-xl border border-orange-200 bg-orange-50/40 p-4">
-            <label className="text-sm font-semibold text-zinc-700">创建班级</label>
-            <div className="mt-2 flex gap-2">
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="班级名称"
-                className="flex-1 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm"
-              />
-              <button
-                onClick={handleCreate}
-                disabled={creating || !name.trim()}
-                className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-50"
-              >
-                {creating ? "创建中…" : "创建"}
-              </button>
-            </div>
-            {created && (
-              <p className="mt-2 text-sm text-emerald-600">
-                班级「{created.name}」已创建，邀请码：{" "}
-                <span className="font-mono font-bold">{created.invite_code}</span>
-                （发给学生）
-              </p>
-            )}
+        <div className="flex-1 rounded-xl border border-orange-200 bg-orange-50/40 p-4">
+          <label className="text-sm font-semibold text-zinc-700">创建班级</label>
+          <div className="mt-2 flex gap-1.5">
+            <button
+              type="button"
+              onClick={() => setCreateRole("teacher")}
+              className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
+                createRole === "teacher"
+                  ? "border-orange-400 bg-orange-600 text-white"
+                  : "border-zinc-200 bg-white text-zinc-600"
+              }`}
+            >
+              以教师身份
+            </button>
+            <button
+              type="button"
+              onClick={() => setCreateRole("student")}
+              className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
+                createRole === "student"
+                  ? "border-orange-400 bg-orange-600 text-white"
+                  : "border-zinc-200 bg-white text-zinc-600"
+              }`}
+            >
+              以学生身份
+            </button>
           </div>
-        )}
+          <div className="mt-2 flex gap-2">
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="班级名称"
+              className="flex-1 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm"
+            />
+            <button
+              onClick={handleCreate}
+              disabled={creating || !name.trim()}
+              className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-50"
+            >
+              {creating ? "创建中…" : "创建"}
+            </button>
+          </div>
+          {created && (
+            <p className="mt-2 text-sm text-emerald-600">
+              班级「{created.name}」已创建，邀请码：{" "}
+              <span className="font-mono font-bold">{created.invite_code}</span>
+              （发给同学）
+            </p>
+          )}
+        </div>
 
         <div className="flex-1 rounded-xl border border-zinc-200 bg-white p-4">
           <label className="text-sm font-semibold text-zinc-700">加入班级</label>
+          <div className="mt-2 flex gap-1.5">
+            <button
+              type="button"
+              onClick={() => setJoinRole("teacher")}
+              className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
+                joinRole === "teacher"
+                  ? "border-orange-400 bg-orange-600 text-white"
+                  : "border-zinc-200 text-zinc-600"
+              }`}
+            >
+              以教师身份
+            </button>
+            <button
+              type="button"
+              onClick={() => setJoinRole("student")}
+              className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
+                joinRole === "student"
+                  ? "border-orange-400 bg-orange-600 text-white"
+                  : "border-zinc-200 text-zinc-600"
+              }`}
+            >
+              以学生身份
+            </button>
+          </div>
           <div className="mt-2 flex gap-2">
             <input
               value={inviteCode}
