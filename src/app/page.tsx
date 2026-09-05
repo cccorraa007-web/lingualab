@@ -22,6 +22,7 @@ export default function Home() {
   const { user } = useAuth();
   const lang = user ? parseTargetLang(user.user_metadata?.target_lang) : "en";
   const m = langMeta(lang);
+  const word = user ? m.short : "语言";
 
   return (
     <div className="flex flex-col">
@@ -35,26 +36,37 @@ export default function Home() {
             {m.brand}
           </h1>
           <p className="mx-auto mt-4 max-w-2xl text-lg font-medium text-zinc-700">
-            把读过的{m.short}，
-            <span className="text-orange-600">变成能说的{m.short}</span>
+            把读过的{word}，
+            <span className="text-orange-600">变成能说的{word}</span>
           </p>
           <p className="mx-auto mt-3 max-w-2xl text-base leading-8 text-zinc-600">
-            面向中国{m.label}学习者的「输入 → 输出」训练平台，支持自主学习与课堂教学两种模式。
+            面向中文母语者的「输入 → 输出」训练平台，支持自主学习与课堂教学两种模式。
           </p>
-          <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Link
-              href="/corpus"
-              className="w-full rounded-lg bg-orange-600 px-6 py-3 text-base font-semibold text-white transition-colors hover:bg-orange-700 sm:w-auto"
-            >
-              进入自学模式
-            </Link>
-            <Link
-              href="/teaching"
-              className="w-full rounded-lg border border-zinc-200 bg-white px-6 py-3 text-base font-semibold text-zinc-700 transition-colors hover:bg-zinc-50 sm:w-auto"
-            >
-              进入教学模式
-            </Link>
-          </div>
+          {user ? (
+            <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <Link
+                href="/corpus"
+                className="w-full rounded-lg bg-orange-600 px-6 py-3 text-base font-semibold text-white transition-colors hover:bg-orange-700 sm:w-auto"
+              >
+                进入自学模式
+              </Link>
+              <Link
+                href="/teaching"
+                className="w-full rounded-lg border border-zinc-200 bg-white px-6 py-3 text-base font-semibold text-zinc-700 transition-colors hover:bg-zinc-50 sm:w-auto"
+              >
+                进入教学模式
+              </Link>
+            </div>
+          ) : (
+            <div className="mt-10">
+              <Link
+                href="/login"
+                className="inline-block rounded-lg bg-orange-600 px-12 py-4 text-lg font-semibold text-white shadow-md transition-colors hover:bg-orange-700"
+              >
+                立即登录
+              </Link>
+            </div>
+          )}
         </div>
       </section>
 
