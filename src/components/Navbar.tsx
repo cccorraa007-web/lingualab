@@ -2,22 +2,27 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useAuth, signOut, useTargetLang, setTargetLang } from "@/lib/auth";
 import { LANGS, PRODUCT_NAME, type TargetLang } from "@/lib/language";
 
-const navItems = [
+const selfStudyItems = [
   { href: "/corpus", label: "语料库" },
   { href: "/practice", label: "口语练习" },
   { href: "/mistakes", label: "错题本" },
   { href: "/polish", label: "写作润色" },
 ];
 
+const teachingItems = [{ href: "/teaching", label: "班级" }];
+
 export default function Navbar() {
   const [open, setOpen] = useState(false);
   const { user } = useAuth();
   const lang = useTargetLang();
   const router = useRouter();
+  const pathname = usePathname();
+  const isTeaching = pathname.startsWith("/teaching");
+  const navItems = isTeaching ? teachingItems : selfStudyItems;
 
   return (
     <header className="sticky top-0 z-50 border-b border-orange-100 bg-white/85 backdrop-blur">
@@ -39,6 +44,28 @@ export default function Navbar() {
         </Link>
 
         <div className="hidden items-center gap-1 md:flex">
+          <div className="mr-2 flex items-center gap-0.5 rounded-lg border border-zinc-200 p-0.5">
+            <Link
+              href="/corpus"
+              className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
+                !isTeaching
+                  ? "bg-orange-600 text-white"
+                  : "text-zinc-600 hover:bg-zinc-100"
+              }`}
+            >
+              自学
+            </Link>
+            <Link
+              href="/teaching"
+              className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
+                isTeaching
+                  ? "bg-orange-600 text-white"
+                  : "text-zinc-600 hover:bg-zinc-100"
+              }`}
+            >
+              教学
+            </Link>
+          </div>
           {navItems.map((item) => (
             <Link
               key={item.href}
@@ -140,6 +167,30 @@ export default function Navbar() {
       {open && (
         <div className="border-t border-orange-100 bg-white md:hidden">
           <div className="mx-auto max-w-6xl space-y-1 px-4 py-3">
+            <div className="flex gap-0.5 rounded-lg border border-zinc-200 p-0.5">
+              <Link
+                href="/corpus"
+                onClick={() => setOpen(false)}
+                className={`flex-1 rounded-md px-3 py-1.5 text-center text-sm font-medium transition ${
+                  !isTeaching
+                    ? "bg-orange-600 text-white"
+                    : "text-zinc-600 hover:bg-zinc-100"
+                }`}
+              >
+                自学
+              </Link>
+              <Link
+                href="/teaching"
+                onClick={() => setOpen(false)}
+                className={`flex-1 rounded-md px-3 py-1.5 text-center text-sm font-medium transition ${
+                  isTeaching
+                    ? "bg-orange-600 text-white"
+                    : "text-zinc-600 hover:bg-zinc-100"
+                }`}
+              >
+                教学
+              </Link>
+            </div>
             {navItems.map((item) => (
               <Link
                 key={item.href}

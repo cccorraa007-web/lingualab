@@ -27,18 +27,26 @@ export async function signIn(email: string, password: string): Promise<string | 
   return error ? error.message : null;
 }
 
+export type UserRole = "teacher" | "student";
+
+export function parseRole(v: unknown): UserRole {
+  return v === "teacher" ? "teacher" : "student";
+}
+
 export async function signUp(
   email: string,
   password: string,
   lang: TargetLang,
-): Promise<string | null> {
+  role: UserRole,
+): Promise<{ error: string | null; needsConfirm: boolean }> {
   const supabase = getSupabaseBrowser();
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email,
     password,
-    options: { data: { target_lang: lang } },
+    options: { data: { target_lang: lang, role } },
   });
-  return error ? error.message : null;
+  if (error) return { error: error.message, needsConfirm: false };
+  return { error: null, needsConfirm: !data.session };
 }
 
 export async function setTargetLang(lang: TargetLang): Promise<void> {
@@ -73,4 +81,9 @@ export function useAuth(): { user: User | null; loading: boolean } {
 export function useTargetLang(): TargetLang {
   const { user } = useAuth();
   return parseTargetLang(user?.user_metadata?.target_lang);
+}
+
+export function useRole(): UserRole {
+  const { user } = useAuth();
+  return parseRole(user?.user_metadata?.role);
 }

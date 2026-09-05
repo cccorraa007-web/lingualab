@@ -2,10 +2,17 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { getSupabase } from "./client";
 import { parseTargetLang, type TargetLang } from "@/lib/language";
 
+export type UserRole = "teacher" | "student";
+
 export interface AuthUser {
   id: string;
   email?: string | null;
   lang: TargetLang;
+  role: UserRole;
+}
+
+function parseRole(v: unknown): UserRole {
+  return v === "teacher" ? "teacher" : "student";
 }
 
 export async function getUserClient(
@@ -34,6 +41,7 @@ export async function getUserClient(
       id: data.user.id,
       email: data.user.email,
       lang: parseTargetLang(data.user.user_metadata?.target_lang),
+      role: parseRole(data.user.user_metadata?.role),
     },
   };
 }
