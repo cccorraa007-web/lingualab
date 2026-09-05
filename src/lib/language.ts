@@ -23,7 +23,7 @@ export const LANGS: Record<TargetLang, LangMeta> = {
     label: "英语",
     short: "英语",
     brand: "SpeakUp",
-    ttsVoice: "Emily",
+    ttsVoice: "Cindy",
   },
 };
 
