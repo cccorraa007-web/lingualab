@@ -23,35 +23,40 @@ export default function LoginPage() {
       return;
     }
     setLoading(true);
-    if (mode === "signup") {
-      const { error: err, needsConfirm } = await signUp(
-        email.trim(),
-        password,
-        lang,
-      );
+    try {
+      if (mode === "signup") {
+        const { error: err, needsConfirm } = await signUp(
+          email.trim(),
+          password,
+          lang,
+        );
+        setLoading(false);
+        if (err) {
+          setError(err);
+          return;
+        }
+        if (needsConfirm) {
+          setNotice("注册成功！请查收邮箱里的确认邮件，点击确认后再登录。");
+          setMode("signin");
+          return;
+        }
+        router.push("/corpus");
+        router.refresh();
+        return;
+      }
+      const err = await signIn(email.trim(), password);
       setLoading(false);
       if (err) {
         setError(err);
         return;
       }
-      if (needsConfirm) {
-        setNotice("注册成功！请查收邮箱里的确认邮件，点击确认后再登录。");
-        setMode("signin");
-        return;
-      }
+      await setTargetLang(lang);
       router.push("/corpus");
       router.refresh();
-      return;
+    } catch (e) {
+      setLoading(false);
+      setError(e instanceof Error ? e.message : String(e));
     }
-    const err = await signIn(email.trim(), password);
-    setLoading(false);
-    if (err) {
-      setError(err);
-      return;
-    }
-    await setTargetLang(lang);
-    router.push("/corpus");
-    router.refresh();
   }
 
   return (
