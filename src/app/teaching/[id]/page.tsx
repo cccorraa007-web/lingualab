@@ -233,21 +233,21 @@ export default function ClassroomDetailPage() {
               className="mt-2 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm"
             />
             <div className="mt-2 flex flex-wrap gap-3">
-              <label className="text-xs text-zinc-600">
-                开始时间
-                <input
-                  type="datetime-local"
-                  value={pStart}
-                  onChange={(e) => setPStart(e.target.value)}
-                  className="ml-2 rounded-lg border border-zinc-200 px-2 py-1.5 text-sm"
-                />
-              </label>
-              <label className="text-xs text-zinc-600">
-                截止时间
+              <label className="text-xs font-semibold text-zinc-600">
+                截止时间<span className="text-red-500">（必填）</span>
                 <input
                   type="datetime-local"
                   value={pEnd}
                   onChange={(e) => setPEnd(e.target.value)}
+                  className="ml-2 rounded-lg border border-zinc-200 px-2 py-1.5 text-sm"
+                />
+              </label>
+              <label className="text-xs text-zinc-600">
+                开始时间<span className="text-zinc-400">（可选）</span>
+                <input
+                  type="datetime-local"
+                  value={pStart}
+                  onChange={(e) => setPStart(e.target.value)}
                   className="ml-2 rounded-lg border border-zinc-200 px-2 py-1.5 text-sm"
                 />
               </label>
