@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useTargetLang } from "@/lib/auth";
-import { langMeta, PRODUCT_NAME } from "@/lib/language";
+import { useAuth } from "@/lib/auth";
+import { langMeta, parseTargetLang, PRODUCT_NAME } from "@/lib/language";
 
 const selfStudyFeatures = [
   { title: "语料库", desc: "导入读过的材料，AI 自动分类、提取关键词和地道表达，建成专属语料库。" },
@@ -19,7 +19,8 @@ const teachingFeatures = [
 ];
 
 export default function Home() {
-  const lang = useTargetLang();
+  const { user } = useAuth();
+  const lang = user ? parseTargetLang(user.user_metadata?.target_lang) : "en";
   const m = langMeta(lang);
 
   return (
