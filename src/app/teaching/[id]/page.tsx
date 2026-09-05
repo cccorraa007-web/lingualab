@@ -118,14 +118,22 @@ export default function ClassroomDetailPage() {
     const res = await apiFetch(`/api/materials/${id}`);
     const d = await res.json();
     if (res.ok && d.material) {
-      setPTitle(d.material.title ?? "");
+      if (d.material.title) setPTitle(d.material.title);
       setPText(d.material.raw_text ?? "");
     }
   }
 
   async function publish() {
-    if (!pTitle.trim() || !pText.trim() || !pEnd) {
-      setError("请填写标题、正文和截止时间");
+    if (!pTitle.trim()) {
+      setError("请填写标题");
+      return;
+    }
+    if (!pText.trim()) {
+      setError("请填写正文");
+      return;
+    }
+    if (!pEnd) {
+      setError("请设置截止时间");
       return;
     }
     setPublishing(true);
