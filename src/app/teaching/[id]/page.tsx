@@ -42,6 +42,11 @@ function readingStatus(r: Reading): { text: string; cls: string } {
   return { text: "进行中", cls: "bg-emerald-100 text-emerald-700" };
 }
 
+function nowTime(): string {
+  const now = new Date();
+  return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+}
+
 export default function ClassroomDetailPage() {
   const params = useParams<{ id: string }>();
   const [classroom, setClassroom] = useState<{ name: string; invite_code: string } | null>(null);
@@ -57,7 +62,8 @@ export default function ClassroomDetailPage() {
   const [pTitle, setPTitle] = useState("");
   const [pText, setPText] = useState("");
   const [pStart, setPStart] = useState("");
-  const [pEnd, setPEnd] = useState("");
+  const [pEndDate, setPEndDate] = useState("");
+  const [pEndTime, setPEndTime] = useState(nowTime);
   const [publishing, setPublishing] = useState(false);
 
   const load = useCallback(() => setReloadKey((k) => k + 1), []);
@@ -132,13 +138,14 @@ export default function ClassroomDetailPage() {
       setError("请填写正文");
       return;
     }
-    if (!pEnd) {
-      setError("请设置截止时间");
+    if (!pEndDate) {
+      setError("请设置截止日期");
       return;
     }
     setPublishing(true);
     setError("");
     try {
+      const endsAt = `${pEndDate}T${pEndTime || nowTime()}`;
       const res = await apiFetch(`/api/classrooms/${params.id}/readings`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -146,7 +153,7 @@ export default function ClassroomDetailPage() {
           title: pTitle.trim(),
           text: pText.trim(),
           starts_at: pStart,
-          ends_at: pEnd,
+          ends_at: endsAt,
         }),
       });
       const data = await res.json();
@@ -155,7 +162,8 @@ export default function ClassroomDetailPage() {
       setPTitle("");
       setPText("");
       setPStart("");
-      setPEnd("");
+      setPEndDate("");
+      setPEndTime(nowTime());
       load();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -234,11 +242,20 @@ export default function ClassroomDetailPage() {
             />
             <div className="mt-2 flex flex-wrap gap-3">
               <label className="text-xs font-semibold text-zinc-600">
-                截止时间<span className="text-red-500">（必填）</span>
+                截止日期<span className="text-red-500">（必填）</span>
                 <input
-                  type="datetime-local"
-                  value={pEnd}
-                  onChange={(e) => setPEnd(e.target.value)}
+                  type="date"
+                  value={pEndDate}
+                  onChange={(e) => setPEndDate(e.target.value)}
+                  className="ml-2 rounded-lg border border-zinc-200 px-2 py-1.5 text-sm"
+                />
+              </label>
+              <label className="text-xs text-zinc-600">
+                截止时间
+                <input
+                  type="time"
+                  value={pEndTime}
+                  onChange={(e) => setPEndTime(e.target.value)}
                   className="ml-2 rounded-lg border border-zinc-200 px-2 py-1.5 text-sm"
                 />
               </label>
