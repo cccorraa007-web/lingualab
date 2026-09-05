@@ -27,7 +27,7 @@ export const LANGS: Record<TargetLang, LangMeta> = {
   },
 };
 
-export const DEFAULT_LANG: TargetLang = "es";
+export const DEFAULT_LANG: TargetLang = "en";
 
 export function parseTargetLang(v: unknown): TargetLang {
   return v === "en" ? "en" : "es";

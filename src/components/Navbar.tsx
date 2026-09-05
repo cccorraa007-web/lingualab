@@ -22,6 +22,7 @@ export default function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
   const isTeaching = pathname.startsWith("/teaching");
+  const isLogin = pathname.startsWith("/login");
   const navItems = isTeaching ? teachingItems : selfStudyItems;
 
   return (
@@ -37,9 +38,6 @@ export default function Navbar() {
           </span>
           <span className="text-lg font-bold tracking-tight text-zinc-900">
             {PRODUCT_NAME}
-            <span className="ml-1 hidden text-sm font-normal text-zinc-500 sm:inline">
-              {LANGS[lang].short}听说训练
-            </span>
           </span>
         </Link>
 
@@ -48,7 +46,7 @@ export default function Navbar() {
             <Link
               href="/corpus"
               className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
-                !isTeaching
+                !isTeaching && !isLogin
                   ? "bg-orange-600 text-white"
                   : "text-zinc-600 hover:bg-zinc-100"
               }`}
@@ -58,7 +56,7 @@ export default function Navbar() {
             <Link
               href="/teaching"
               className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
-                isTeaching
+                isTeaching && !isLogin
                   ? "bg-orange-600 text-white"
                   : "text-zinc-600 hover:bg-zinc-100"
               }`}
@@ -172,7 +170,7 @@ export default function Navbar() {
                 href="/corpus"
                 onClick={() => setOpen(false)}
                 className={`flex-1 rounded-md px-3 py-1.5 text-center text-sm font-medium transition ${
-                  !isTeaching
+                  !isTeaching && !isLogin
                     ? "bg-orange-600 text-white"
                     : "text-zinc-600 hover:bg-zinc-100"
                 }`}
@@ -183,7 +181,7 @@ export default function Navbar() {
                 href="/teaching"
                 onClick={() => setOpen(false)}
                 className={`flex-1 rounded-md px-3 py-1.5 text-center text-sm font-medium transition ${
-                  isTeaching
+                  isTeaching && !isLogin
                     ? "bg-orange-600 text-white"
                     : "text-zinc-600 hover:bg-zinc-100"
                 }`}

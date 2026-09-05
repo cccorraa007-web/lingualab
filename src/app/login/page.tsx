@@ -10,7 +10,7 @@ export default function LoginPage() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [lang, setLang] = useState<TargetLang>("es");
+  const [lang, setLang] = useState<TargetLang>("en");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(false);
