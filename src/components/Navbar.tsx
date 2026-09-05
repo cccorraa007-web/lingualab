@@ -117,7 +117,7 @@ export default function Navbar() {
             </div>
           ) : (
             <Link
-              href="/login"
+              href={`/login?next=${encodeURIComponent(pathname)}`}
               className="ml-3 rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
             >
               登录
@@ -228,7 +228,7 @@ export default function Navbar() {
               </div>
             ) : (
               <Link
-                href="/login"
+                href={`/login?next=${encodeURIComponent(pathname)}`}
                 onClick={() => setOpen(false)}
                 className="mt-1 block rounded-lg border border-zinc-200 px-3 py-2 text-center text-sm font-medium text-zinc-700"
               >

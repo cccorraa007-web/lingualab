@@ -15,6 +15,12 @@ export default function LoginPage() {
   const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(false);
 
+  function redirectAfterLogin() {
+    const next = new URLSearchParams(window.location.search).get("next");
+    router.push(next && next.startsWith("/") ? next : "/corpus");
+    router.refresh();
+  }
+
   async function submit() {
     setError("");
     setNotice("");
@@ -40,8 +46,7 @@ export default function LoginPage() {
           setMode("signin");
           return;
         }
-        router.push("/corpus");
-        router.refresh();
+        redirectAfterLogin();
         return;
       }
       const err = await signIn(email.trim(), password);
@@ -51,8 +56,7 @@ export default function LoginPage() {
         return;
       }
       await setTargetLang(lang);
-      router.push("/corpus");
-      router.refresh();
+      redirectAfterLogin();
     } catch (e) {
       setLoading(false);
       setError(e instanceof Error ? e.message : String(e));
