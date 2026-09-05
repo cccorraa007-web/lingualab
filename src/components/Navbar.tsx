@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useAuth, signOut, useTargetLang, setTargetLang } from "@/lib/auth";
+import { useAuth, signOut, useTargetLang, setTargetLang, useRole, setRole } from "@/lib/auth";
 import { LANGS, PRODUCT_NAME, type TargetLang } from "@/lib/language";
 
 const selfStudyItems = [
@@ -19,6 +19,7 @@ export default function Navbar() {
   const [open, setOpen] = useState(false);
   const { user } = useAuth();
   const lang = useTargetLang();
+  const role = useRole();
   const router = useRouter();
   const pathname = usePathname();
   const isTeaching = pathname.startsWith("/teaching");
@@ -81,6 +82,20 @@ export default function Navbar() {
           >
             开始练习
           </Link>
+          {user && (
+            <select
+              value={role}
+              onChange={(e) => {
+                void setRole(e.target.value as "teacher" | "student").then(() =>
+                  router.refresh(),
+                );
+              }}
+              className="ml-2 rounded-lg border border-zinc-200 px-2 py-1.5 text-xs text-zinc-600"
+            >
+              <option value="student">学生</option>
+              <option value="teacher">教师</option>
+            </select>
+          )}
           {user && (
             <select
               value={lang}

@@ -54,6 +54,11 @@ export async function setTargetLang(lang: TargetLang): Promise<void> {
   await supabase.auth.updateUser({ data: { target_lang: lang } });
 }
 
+export async function setRole(role: UserRole): Promise<void> {
+  const supabase = getSupabaseBrowser();
+  await supabase.auth.updateUser({ data: { role } });
+}
+
 export async function signOut(): Promise<void> {
   const supabase = getSupabaseBrowser();
   await supabase.auth.signOut();
