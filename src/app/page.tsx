@@ -1,19 +1,31 @@
-import Link from "next/link";
+"use client";
 
-const pains = [
-  {
-    title: "会做题 ≠ 会交流",
-    desc: "语法题刷得飞起，一到真实场景就卡壳、脑子一片空白。",
-  },
-  {
-    title: "读得多 ≠ 说得出",
-    desc: "背了不少单词和文章，开口还是满嘴中式西语、不地道。",
-  },
-  {
-    title: "标准西语 ≠ 当地口音",
-    desc: "课本西语，听不懂街头俚语和不同国家的 voseo、口音差异。",
-  },
-];
+import Link from "next/link";
+import { useTargetLang } from "@/lib/auth";
+import { langMeta, PRODUCT_NAME, type TargetLang } from "@/lib/language";
+
+function buildPains(lang: TargetLang) {
+  const m = langMeta(lang);
+  return [
+    {
+      title: "会做题 ≠ 会交流",
+      desc: "语法题刷得飞起，一到真实场景就卡壳、脑子一片空白。",
+    },
+    {
+      title: "读得多 ≠ 说得出",
+      desc: `背了不少单词和文章，开口还是满嘴中式${m.short}、不地道。`,
+    },
+    lang === "es"
+      ? {
+          title: "标准西语 ≠ 当地口音",
+          desc: "课本西语，听不懂街头俚语和不同国家的 voseo、口音差异。",
+        }
+      : {
+          title: "标准英语 ≠ 各地口音",
+          desc: "课本英语，听不懂街头俚语和英式美式的口音差异。",
+        },
+  ];
+}
 
 const features = [
   {
@@ -28,7 +40,7 @@ const features = [
     num: "2",
     title: "口语练习",
     subtitle: "Hablar",
-    desc: "AI 当考官模拟 DELE/SIELE 口语题，四维评分，记住你的常见错误，下次刻意纠正。",
+    desc: "AI 当考官模拟口语考试题，四维评分，记住你的常见错误，下次刻意纠正。",
   },
   {
     href: "/polish",
@@ -39,33 +51,47 @@ const features = [
   },
 ];
 
-const steps = [
-  {
-    title: "导入材料",
-    desc: "粘贴文章、贴链接、上传音频，把你读过、听过的都喂进来。",
-  },
-  {
-    title: "自动建库",
-    desc: "AI 按话题分类，提取关键词、地道表达和口语练习素材。",
-  },
-  {
-    title: "转化输出",
-    desc: "对话、润色，把被动的输入变成能说的西语。",
-  },
-];
+function buildSteps(lang: TargetLang) {
+  const m = langMeta(lang);
+  return [
+    {
+      title: "导入材料",
+      desc: "粘贴文章、贴链接、上传音频，把你读过、听过的都喂进来。",
+    },
+    {
+      title: "自动建库",
+      desc: "AI 按话题分类，提取关键词、地道表达和口语练习素材。",
+    },
+    {
+      title: "转化输出",
+      desc: `对话、润色，把被动的输入变成能说的${m.short}。`,
+    },
+  ];
+}
 
 export default function Home() {
+  const lang = useTargetLang();
+  const m = langMeta(lang);
+  const pains = buildPains(lang);
+  const steps = buildSteps(lang);
+
   return (
     <div className="flex flex-col">
       {/* Hero */}
       <section className="bg-gradient-to-b from-orange-50 to-white">
         <div className="mx-auto max-w-6xl px-4 py-20 text-center sm:px-6 sm:py-28">
-          <h1 className="mx-auto max-w-3xl text-4xl font-bold leading-tight tracking-tight text-zinc-900 sm:text-5xl">
-            把读过的西语，
-            <span className="text-orange-600">变成能说的西语</span>
+          <p className="text-sm font-semibold uppercase tracking-widest text-orange-600">
+            {PRODUCT_NAME}
+          </p>
+          <h1 className="mt-3 text-5xl font-bold tracking-tight text-zinc-900 sm:text-6xl">
+            {m.brand}
           </h1>
-          <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-zinc-600">
-            面向中国西语学习者的「输入 → 输出」训练平台。自动建立你的专属语料库，
+          <p className="mx-auto mt-4 max-w-2xl text-lg font-medium text-zinc-700">
+            把读过的{m.short}，
+            <span className="text-orange-600">变成能说的{m.short}</span>
+          </p>
+          <p className="mx-auto mt-3 max-w-2xl text-base leading-8 text-zinc-600">
+            面向中国{m.label}学习者的「输入 → 输出」训练平台。自动建立你的专属语料库，
             围绕它做对话、润色，摆脱「会做题、说不出」的困境。
           </p>
           <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">

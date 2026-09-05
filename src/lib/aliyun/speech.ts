@@ -81,6 +81,17 @@ export function getAppKey(): string {
   return key;
 }
 
+export function getAppKeyForLang(lang: "es" | "en"): string {
+  if (lang === "en") {
+    const key = process.env.ALIYUN_APP_KEY_EN || process.env.ALIYUN_APP_KEY;
+    if (!key) {
+      throw new Error("缺少 ALIYUN_APP_KEY 环境变量");
+    }
+    return key;
+  }
+  return getAppKey();
+}
+
 function appKey(): string {
   return getAppKey();
 }
@@ -104,7 +115,7 @@ function splitText(text: string, maxLen: number): string[] {
   return segments;
 }
 
-async function synthesizeOne(text: string): Promise<ArrayBuffer> {
+async function synthesizeOne(text: string, voice: string): Promise<ArrayBuffer> {
   const token = await getToken();
   const params = new URLSearchParams({
     appkey: appKey(),
@@ -112,7 +123,7 @@ async function synthesizeOne(text: string): Promise<ArrayBuffer> {
     text,
     format: "mp3",
     sample_rate: "16000",
-    voice: process.env.ALIYUN_TTS_VOICE || "Camila",
+    voice,
   });
   const url = `https://${NLS_GATEWAY_HOST}/stream/v1/tts?${params.toString()}`;
   const res = await fetch(url);
@@ -135,12 +146,15 @@ function cleanTextForTTS(text: string): string {
     .trim();
 }
 
-export async function synthesizeSpeech(text: string): Promise<ArrayBuffer[]> {
+export async function synthesizeSpeech(
+  text: string,
+  voice: string = process.env.ALIYUN_TTS_VOICE || "Camila",
+): Promise<ArrayBuffer[]> {
   const cleaned = cleanTextForTTS(text);
   const segments = splitText(cleaned, TTS_MAX_CHARS);
   const buffers: ArrayBuffer[] = [];
   for (const seg of segments) {
-    buffers.push(await synthesizeOne(seg));
+    buffers.push(await synthesizeOne(seg, voice));
   }
   return buffers;
 }

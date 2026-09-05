@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { apiFetch } from "@/lib/auth";
+import { apiFetch, useTargetLang } from "@/lib/auth";
+import { langMeta } from "@/lib/language";
 
 interface Mistake {
   id: string;
@@ -27,6 +28,7 @@ export default function InterpretingPractice({
 }: {
   onBack: () => void;
 }) {
+  const lang = useTargetLang();
   const [state, setState] = useState<PracticeState | null>(null);
   const [done, setDone] = useState(false);
   const [doneReason, setDoneReason] = useState("");
@@ -149,7 +151,7 @@ export default function InterpretingPractice({
       <div className="mt-3 flex items-center justify-between">
         <h2 className="text-2xl font-bold text-zinc-900">口译练习</h2>
         <span className="text-xs text-zinc-400">
-          把中文口译成西语，巩固正确表达
+          把中文口译成{langMeta(lang).short}，巩固正确表达
         </span>
       </div>
 
@@ -177,7 +179,7 @@ export default function InterpretingPractice({
           {state && !result && (
             <div className="mt-8 rounded-2xl border border-zinc-100 bg-white p-8 text-center">
               <p className="text-xs font-semibold text-zinc-400">
-                请把下面这句话口译成西班牙语
+                请把下面这句话口译成{langMeta(lang).label}
               </p>
               <p className="mt-4 text-2xl font-semibold text-zinc-900">
                 {state.prompt}
@@ -207,7 +209,7 @@ export default function InterpretingPractice({
                         submit(answer);
                       }
                     }}
-                    placeholder="或直接输入西语…（Enter 提交）"
+                    placeholder={`或直接输入${langMeta(lang).short}…（Enter 提交）`}
                     className="flex-1 rounded-lg border border-zinc-200 px-4 py-2.5 text-sm outline-none focus:border-orange-400"
                   />
                   <button

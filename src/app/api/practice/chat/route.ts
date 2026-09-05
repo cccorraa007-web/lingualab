@@ -62,6 +62,6 @@ export async function POST(request: Request) {
   }));
 
   const context = await getTopicContext(auth.client, auth.user.id, topic);
-  const reply = await chatReply(context, messages);
+  const reply = await chatReply(context, messages, auth.user.lang);
   return NextResponse.json({ reply });
 }

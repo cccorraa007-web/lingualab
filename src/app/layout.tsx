@@ -14,9 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "HablaYa · 西语听说训练",
+  title: "LinguaLab · 外语听说训练",
   description:
-    "把读过的西语，变成能说的西语。语料库 + 口语练习 + 写作润色。",
+    "把读过的外语，变成能说的外语。语料库 + 口语练习 + 写作润色。",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -30,7 +30,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <main className="flex-1">{children}</main>
         <footer className="border-t border-zinc-100 bg-zinc-50">
           <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-2 px-4 py-8 text-sm text-zinc-500 sm:flex-row sm:px-6">
-            <p>HablaYa · 把读过的西语，变成能说的西语</p>
+            <p>LinguaLab · 把读过的外语，变成能说的外语</p>
             <p>AI 评分与润色仅供参考，请以官方考试标准为准</p>
           </div>
         </footer>

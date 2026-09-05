@@ -37,6 +37,7 @@ export async function POST(request: Request) {
     mistake as InterpretingMistake,
     prompt,
     answer.trim(),
+    auth.user.lang,
   );
 
   if (correct) {

@@ -2,13 +2,15 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { signIn, signUp } from "@/lib/auth";
+import { signIn, signUp, setTargetLang } from "@/lib/auth";
+import { LANGS, PRODUCT_NAME, type TargetLang } from "@/lib/language";
 
 export default function LoginPage() {
   const router = useRouter();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [lang, setLang] = useState<TargetLang>("es");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(false);
@@ -21,21 +23,24 @@ export default function LoginPage() {
       return;
     }
     setLoading(true);
-    const err =
-      mode === "signin"
-        ? await signIn(email.trim(), password)
-        : await signUp(email.trim(), password);
-    setLoading(false);
-
-    if (err) {
-      setError(err);
-      return;
-    }
     if (mode === "signup") {
+      const err = await signUp(email.trim(), password, lang);
+      setLoading(false);
+      if (err) {
+        setError(err);
+        return;
+      }
       setNotice("注册成功！请查收邮箱里的确认邮件，点击确认后再登录。");
       setMode("signin");
       return;
     }
+    const err = await signIn(email.trim(), password);
+    setLoading(false);
+    if (err) {
+      setError(err);
+      return;
+    }
+    await setTargetLang(lang);
     router.push("/corpus");
     router.refresh();
   }
@@ -44,7 +49,7 @@ export default function LoginPage() {
     <div className="mx-auto flex max-w-sm flex-col gap-6 px-4 py-16 sm:px-6">
       <div className="text-center">
         <h1 className="text-2xl font-bold tracking-tight text-zinc-900">
-          {mode === "signin" ? "登录 HablaYa" : "注册 HablaYa"}
+          {mode === "signin" ? "登录" : "注册"} {PRODUCT_NAME}
         </h1>
         <p className="mt-2 text-sm text-zinc-500">
           登录后你的语料库、错题本、练习记录都只属于你自己
@@ -53,6 +58,27 @@ export default function LoginPage() {
 
       <div className="rounded-2xl border border-zinc-100 bg-white p-6">
         <div className="space-y-4">
+          <div>
+            <label className="text-xs font-semibold text-zinc-600">
+              我要学
+            </label>
+            <div className="mt-1 grid grid-cols-2 gap-2">
+              {(Object.keys(LANGS) as TargetLang[]).map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setLang(k)}
+                  className={`rounded-lg border px-3 py-2 text-sm font-medium transition ${
+                    lang === k
+                      ? "border-orange-400 bg-orange-50 text-orange-700"
+                      : "border-zinc-200 text-zinc-600 hover:bg-zinc-50"
+                  }`}
+                >
+                  {LANGS[k].label}
+                </button>
+              ))}
+            </div>
+          </div>
           <div>
             <label className="text-xs font-semibold text-zinc-600">邮箱</label>
             <input

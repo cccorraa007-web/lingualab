@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { topicName } from "@/lib/topics";
-import { apiFetch } from "@/lib/auth";
+import { apiFetch, useTargetLang } from "@/lib/auth";
+import { langMeta, type TargetLang } from "@/lib/language";
 
 interface ChatMsg {
   role: "user" | "assistant";
@@ -31,7 +32,7 @@ interface PromptCard {
 
 let ttsAudio: HTMLAudioElement | null = null;
 
-async function speak(text: string) {
+async function speak(text: string, lang: TargetLang) {
   try {
     if (ttsAudio) {
       ttsAudio.pause();
@@ -40,7 +41,7 @@ async function speak(text: string) {
     const res = await apiFetch("/api/speech/tts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text }),
+      body: JSON.stringify({ text, lang }),
     });
     if (!res.ok) throw new Error("TTS 请求失败");
     const data = await res.json();
@@ -109,8 +110,10 @@ function floatToPcm16(samples: Float32Array): ArrayBuffer {
   return buf;
 }
 
-async function getNlsCredentials(): Promise<{ token: string; appkey: string }> {
-  const res = await apiFetch("/api/speech/token");
+async function getNlsCredentials(
+  lang: TargetLang,
+): Promise<{ token: string; appkey: string }> {
+  const res = await apiFetch(`/api/speech/token?lang=${lang}`);
   const data = await res.json();
   if (!res.ok || !data.token || !data.appkey) {
     throw new Error(data.error || "获取语音凭证失败");
@@ -118,8 +121,8 @@ async function getNlsCredentials(): Promise<{ token: string; appkey: string }> {
   return { token: data.token, appkey: data.appkey };
 }
 
-async function startStreamingRecorder(): Promise<StreamingRecorder> {
-  const { token, appkey } = await getNlsCredentials();
+async function startStreamingRecorder(lang: TargetLang): Promise<StreamingRecorder> {
+  const { token, appkey } = await getNlsCredentials(lang);
   const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
   const ctx = new AudioContext({ sampleRate: 16000 });
   await ctx.resume();
@@ -260,6 +263,7 @@ async function startStreamingRecorder(): Promise<StreamingRecorder> {
 }
 
 function FreePractice() {
+  const lang = useTargetLang();
   const [tags, setTags] = useState<string[]>([]);
   const [topic, setTopic] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMsg[]>([]);
@@ -303,7 +307,7 @@ function FreePractice() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "失败");
       setMessages([{ role: "assistant", content: data.reply }]);
-      speak(data.reply);
+      speak(data.reply, lang);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -327,7 +331,7 @@ function FreePractice() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "失败");
       setMessages([...next, { role: "assistant", content: data.reply }]);
-      speak(data.reply);
+      speak(data.reply, lang);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -437,7 +441,7 @@ function FreePractice() {
     }
     void (async () => {
       try {
-        const rec = await startStreamingRecorder();
+        const rec = await startStreamingRecorder(lang);
         mediaRecorderRef.current = rec;
         setListening(true);
       } catch (e) {
@@ -451,7 +455,7 @@ function FreePractice() {
   if (!topic) {
     return (
       <div>
-        <p className="text-zinc-600">选择一个话题，AI 将基于你的语料库内容用西语与你对话，由浅入深引导你开口。</p>
+        <p className="text-zinc-600">选择一个话题，AI 将基于你的语料库内容用{langMeta(lang).short}与你对话，由浅入深引导你开口。</p>
         {tags.length === 0 ? (
           <div className="mt-6 rounded-2xl border border-dashed border-zinc-200 p-10 text-center text-zinc-400">
             语料库还没有任何标签，请先去「语料库」导入文章
@@ -644,7 +648,7 @@ function FreePractice() {
         ) : listening ? (
           <div>
             <div className="mx-auto h-10 w-10 animate-ping rounded-full bg-red-300" />
-            <p className="mt-4 font-medium text-red-600">聆听中，请说西班牙语…</p>
+            <p className="mt-4 font-medium text-red-600">聆听中，请说{langMeta(lang).label}…</p>
           </div>
         ) : (
           <div>
@@ -655,7 +659,7 @@ function FreePractice() {
               点下方「语音回答」开始说，说完再点一次停止
             </p>
             <button
-              onClick={() => lastAssistant && speak(lastAssistant.content)}
+              onClick={() => lastAssistant && speak(lastAssistant.content, lang)}
               className="mt-3 text-xs text-blue-600 hover:underline"
             >
               重听问题
@@ -700,7 +704,7 @@ function FreePractice() {
                   setTextInput("");
                 }
               }}
-              placeholder="用西班牙语输入…（Enter 发送）"
+              placeholder={`用${langMeta(lang).label}输入…（Enter 发送）`}
               className="flex-1 rounded-lg border border-zinc-200 px-4 py-2.5 text-sm outline-none focus:border-orange-400"
             />
             <button
@@ -731,6 +735,7 @@ const EXAM_TYPES = [
 ];
 
 function ExamPractice() {
+  const lang = useTargetLang();
   const [question, setQuestion] = useState<PromptCard | null>(null);
   const [phase, setPhase] = useState<"idle" | "prepare" | "answer" | "done">(
     "idle",
@@ -747,12 +752,12 @@ function ExamPractice() {
 
   const startRecording = useCallback(async () => {
     try {
-      const rec = await startStreamingRecorder();
+      const rec = await startStreamingRecorder(lang);
       recorderRef.current = rec;
     } catch (e) {
       setError("无法访问麦克风：" + (e instanceof Error ? e.message : String(e)));
     }
-  }, []);
+  }, [lang]);
 
   const stopRecording = useCallback(() => {
     const rec = recorderRef.current;

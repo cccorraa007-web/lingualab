@@ -30,7 +30,7 @@ export async function POST(
   }
 
   try {
-    const translation = await translateText(material.raw_text);
+    const translation = await translateText(material.raw_text, auth.user.lang);
     await supabase
       .from("materials")
       .update({ translation })

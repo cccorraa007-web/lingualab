@@ -5,7 +5,8 @@ import type { FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { topicName, resolveTopicSlug } from "@/lib/topics";
-import { apiFetch } from "@/lib/auth";
+import { apiFetch, useTargetLang } from "@/lib/auth";
+import { langMeta } from "@/lib/language";
 
 interface Material {
   id: string;
@@ -18,6 +19,7 @@ interface Material {
 
 export default function CorpusPage() {
   const router = useRouter();
+  const lang = useTargetLang();
   const [search, setSearch] = useState("");
   const [materials, setMaterials] = useState<Material[]>([]);
   const [error, setError] = useState("");
@@ -149,7 +151,7 @@ export default function CorpusPage() {
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="在这里粘贴西班牙语文章（至少 50 个字符）…"
+            placeholder={`在这里粘贴${langMeta(lang).label}文章（至少 50 个字符）…`}
             rows={6}
             className="w-full rounded-xl border border-zinc-200 bg-white p-4 text-zinc-900 placeholder-zinc-400 outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
           />

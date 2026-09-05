@@ -31,7 +31,7 @@ export async function POST(request: Request) {
     .join("\n");
 
   try {
-    const content = await generateExamQuestion(type, context);
+    const content = await generateExamQuestion(type, context, auth.user.lang);
     return NextResponse.json({
       question: { content, zh: null, extra: {} },
     });

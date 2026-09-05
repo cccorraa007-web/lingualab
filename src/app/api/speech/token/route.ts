@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server";
-import { getNlsToken, getAppKey } from "@/lib/aliyun/speech";
+import { getNlsToken, getAppKeyForLang } from "@/lib/aliyun/speech";
+import { parseTargetLang } from "@/lib/language";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const lang = parseTargetLang(searchParams.get("lang"));
   try {
     const token = await getNlsToken();
-    const appkey = getAppKey();
+    const appkey = getAppKeyForLang(lang);
     return NextResponse.json({ token, appkey });
   } catch (e) {
     return NextResponse.json(

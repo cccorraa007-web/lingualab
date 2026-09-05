@@ -43,7 +43,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await processCorpus(text.trim());
+    const result = await processCorpus(text.trim(), auth.user.lang);
 
     await supabase
       .from("materials")

@@ -37,6 +37,6 @@ export async function GET(request: Request) {
   }
 
   const mistake = candidates[0] as InterpretingMistake;
-  const prompt = await generateInterpretingPrompt(mistake);
+  const prompt = await generateInterpretingPrompt(mistake, auth.user.lang);
   return NextResponse.json({ done: false, mistake, prompt });
 }

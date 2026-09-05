@@ -3,7 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useAuth, signOut } from "@/lib/auth";
+import { useAuth, signOut, useTargetLang, setTargetLang } from "@/lib/auth";
+import { LANGS, PRODUCT_NAME, type TargetLang } from "@/lib/language";
 
 const navItems = [
   { href: "/corpus", label: "语料库" },
@@ -15,6 +16,7 @@ const navItems = [
 export default function Navbar() {
   const [open, setOpen] = useState(false);
   const { user } = useAuth();
+  const lang = useTargetLang();
   const router = useRouter();
 
   return (
@@ -26,12 +28,12 @@ export default function Navbar() {
           onClick={() => setOpen(false)}
         >
           <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-600 text-sm font-bold text-white">
-            H
+            {PRODUCT_NAME.charAt(0)}
           </span>
           <span className="text-lg font-bold tracking-tight text-zinc-900">
-            HablaYa
+            {PRODUCT_NAME}
             <span className="ml-1 hidden text-sm font-normal text-zinc-500 sm:inline">
-              西语听说训练
+              {LANGS[lang].short}听说训练
             </span>
           </span>
         </Link>
@@ -52,6 +54,23 @@ export default function Navbar() {
           >
             开始练习
           </Link>
+          {user && (
+            <select
+              value={lang}
+              onChange={(e) => {
+                void setTargetLang(e.target.value as TargetLang).then(() =>
+                  router.refresh(),
+                );
+              }}
+              className="ml-2 rounded-lg border border-zinc-200 px-2 py-1.5 text-xs text-zinc-600"
+            >
+              {(Object.keys(LANGS) as TargetLang[]).map((k) => (
+                <option key={k} value={k}>
+                  学{LANGS[k].label}
+                </option>
+              ))}
+            </select>
+          )}
           {user ? (
             <div className="ml-3 flex items-center gap-2">
               <span className="max-w-[140px] truncate text-xs text-zinc-500">
