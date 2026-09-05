@@ -263,9 +263,10 @@ export default function ClassroomDetailPage() {
           {readings.map((r) => {
             const s = readingStatus(r);
             return (
-              <div
+              <Link
                 key={r.id}
-                className="flex items-center justify-between rounded-xl border border-zinc-100 bg-white p-4"
+                href={`/teaching/${params.id}/readings/${r.id}`}
+                className="flex items-center justify-between rounded-xl border border-zinc-100 bg-white p-4 transition hover:shadow-md"
               >
                 <div className="min-w-0">
                   <p className="font-medium text-zinc-900">{r.title}</p>
@@ -278,7 +279,7 @@ export default function ClassroomDetailPage() {
                 <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${s.cls}`}>
                   {s.text}
                 </span>
-              </div>
+              </Link>
             );
           })}
         </div>
