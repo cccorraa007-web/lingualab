@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { apiFetch } from "@/lib/auth";
 
 interface Mistake {
   id: string;
@@ -41,7 +42,7 @@ export default function InterpretingPractice({
     setResult(null);
     setAnswer("");
     setError("");
-    fetch("/api/mistakes/practice")
+    apiFetch("/api/mistakes/practice")
       .then((r) => r.json())
       .then((d) => {
         if (d.done) {
@@ -66,7 +67,7 @@ export default function InterpretingPractice({
 
   async function recognizeAndSend(blob: Blob) {
     try {
-      const res = await fetch("/api/speech/asr?format=opus", {
+      const res = await apiFetch("/api/speech/asr?format=opus", {
         method: "POST",
         headers: { "Content-Type": "application/octet-stream" },
         body: blob,
@@ -117,7 +118,7 @@ export default function InterpretingPractice({
     setAnswer(text);
     setError("");
     try {
-      const res = await fetch("/api/mistakes/practice/answer", {
+      const res = await apiFetch("/api/mistakes/practice/answer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

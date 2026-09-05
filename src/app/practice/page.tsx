@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { topicName } from "@/lib/topics";
+import { apiFetch } from "@/lib/auth";
 
 interface ChatMsg {
   role: "user" | "assistant";
@@ -36,7 +37,7 @@ async function speak(text: string) {
       ttsAudio.pause();
       ttsAudio = null;
     }
-    const res = await fetch("/api/speech/tts", {
+    const res = await apiFetch("/api/speech/tts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text }),
@@ -109,7 +110,7 @@ function floatToPcm16(samples: Float32Array): ArrayBuffer {
 }
 
 async function getNlsCredentials(): Promise<{ token: string; appkey: string }> {
-  const res = await fetch("/api/speech/token");
+  const res = await apiFetch("/api/speech/token");
   const data = await res.json();
   if (!res.ok || !data.token || !data.appkey) {
     throw new Error(data.error || "获取语音凭证失败");
@@ -277,7 +278,7 @@ function FreePractice() {
   const mediaRecorderRef = useRef<StreamingRecorder | null>(null);
 
   useEffect(() => {
-    fetch("/api/materials")
+    apiFetch("/api/materials")
       .then((r) => r.json())
       .then((d) => {
         const set = new Set<string>();
@@ -294,7 +295,7 @@ function FreePractice() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("/api/practice/chat", {
+      const res = await apiFetch("/api/practice/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ topic: t, history: [] }),
@@ -318,7 +319,7 @@ function FreePractice() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("/api/practice/chat", {
+      const res = await apiFetch("/api/practice/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ topic, history: next }),
@@ -338,7 +339,7 @@ function FreePractice() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("/api/practice/polish", {
+      const res = await apiFetch("/api/practice/polish", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ history: messages }),
@@ -395,7 +396,7 @@ function FreePractice() {
     setSavingMistakes(true);
     setError("");
     try {
-      const res = await fetch("/api/mistakes", {
+      const res = await apiFetch("/api/mistakes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ items }),
@@ -775,7 +776,7 @@ function ExamPractice() {
     setPolish(null);
     audioBlobRef.current = null;
     try {
-      const res = await fetch("/api/practice/exam-question", {
+      const res = await apiFetch("/api/practice/exam-question", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ type }),
@@ -831,7 +832,7 @@ function ExamPractice() {
     setPolishing(true);
     setError("");
     try {
-      const polishRes = await fetch("/api/practice/polish", {
+      const polishRes = await apiFetch("/api/practice/polish", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ history: [{ role: "user", content: text }] }),

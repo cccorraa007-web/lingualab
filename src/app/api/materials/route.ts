@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
-import { getSupabase } from "@/lib/supabase/client";
+import { getUserClient, unauthorized } from "@/lib/supabase/server-auth";
 import { processCorpus } from "@/lib/ai/pipeline";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 export async function POST(request: Request) {
+  const auth = await getUserClient(request);
+  if (!auth) return unauthorized();
+  const supabase = auth.client;
+
   let body: { type?: string; title?: string; text?: string };
   try {
     body = await request.json();
@@ -21,11 +25,14 @@ export async function POST(request: Request) {
     );
   }
 
-  const supabase = getSupabase();
-
   const { data: material, error: mErr } = await supabase
     .from("materials")
-    .insert({ type, title: title?.trim() || null, raw_text: text.trim() })
+    .insert({
+      user_id: auth.user.id,
+      type,
+      title: title?.trim() || null,
+      raw_text: text.trim(),
+    })
     .select()
     .single();
   if (mErr) {
@@ -44,11 +51,13 @@ export async function POST(request: Request) {
         tags: result.tags,
         cefr_level: result.cefr_level || null,
       })
-      .eq("id", material.id);
+      .eq("id", material.id)
+      .eq("user_id", auth.user.id);
 
     const rows = result.items
       .filter((it) => typeof it.content === "string" && it.content.length > 0)
       .map((it) => ({
+        user_id: auth.user.id,
         material_id: material.id,
         category: it.category,
         content: it.content,
@@ -86,14 +95,18 @@ export async function POST(request: Request) {
 }
 
 export async function GET(request: Request) {
+  const auth = await getUserClient(request);
+  if (!auth) return unauthorized();
+  const supabase = auth.client;
+
   const { searchParams } = new URL(request.url);
   const q = searchParams.get("q");
   const tag = searchParams.get("tag");
 
-  const supabase = getSupabase();
   let query = supabase
     .from("materials")
     .select("id, title, type, tags, cefr_level, created_at")
+    .eq("user_id", auth.user.id)
     .order("created_at", { ascending: false });
 
   if (tag) {

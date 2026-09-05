@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSupabase } from "@/lib/supabase/client";
+import { getUserClient, unauthorized } from "@/lib/supabase/server-auth";
 import { evaluateInterpreting } from "@/lib/ai/practice";
 import type { InterpretingMistake } from "@/lib/ai/practice";
 
@@ -7,6 +7,10 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 export async function POST(request: Request) {
+  const auth = await getUserClient(request);
+  if (!auth) return unauthorized();
+  const supabase = auth.client;
+
   let body: { id?: string; answer?: string; prompt?: string };
   try {
     body = await request.json();
@@ -19,11 +23,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "缺少参数" }, { status: 400 });
   }
 
-  const supabase = getSupabase();
   const { data: mistake, error: mErr } = await supabase
     .from("mistake_book")
     .select("*")
     .eq("id", id)
+    .eq("user_id", auth.user.id)
     .single();
   if (mErr || !mistake) {
     return NextResponse.json({ error: "错题不存在" }, { status: 404 });
@@ -38,7 +42,11 @@ export async function POST(request: Request) {
   if (correct) {
     const newStreak = (mistake.correct_streak ?? 0) + 1;
     if (newStreak >= 3) {
-      await supabase.from("mistake_book").delete().eq("id", id);
+      await supabase
+        .from("mistake_book")
+        .delete()
+        .eq("id", id)
+        .eq("user_id", auth.user.id);
       return NextResponse.json({
         correct: true,
         feedback,
@@ -52,7 +60,8 @@ export async function POST(request: Request) {
         correct_streak: newStreak,
         last_reviewed_at: new Date().toISOString(),
       })
-      .eq("id", id);
+      .eq("id", id)
+      .eq("user_id", auth.user.id);
     return NextResponse.json({
       correct: true,
       feedback,
@@ -69,7 +78,8 @@ export async function POST(request: Request) {
       correct_streak: 0,
       last_reviewed_at: new Date().toISOString(),
     })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("user_id", auth.user.id);
   return NextResponse.json({
     correct: false,
     feedback,

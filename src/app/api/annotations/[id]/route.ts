@@ -1,16 +1,23 @@
 import { NextResponse } from "next/server";
-import { getSupabase } from "@/lib/supabase/client";
+import { getUserClient, unauthorized } from "@/lib/supabase/server-auth";
 
 export const dynamic = "force-dynamic";
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const { id } = await params;
-  const supabase = getSupabase();
+  const auth = await getUserClient(request);
+  if (!auth) return unauthorized();
+  const supabase = auth.client;
 
-  const { error } = await supabase.from("annotations").delete().eq("id", id);
+  const { id } = await params;
+
+  const { error } = await supabase
+    .from("annotations")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", auth.user.id);
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

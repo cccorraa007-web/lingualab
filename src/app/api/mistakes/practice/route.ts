@@ -1,16 +1,20 @@
 import { NextResponse } from "next/server";
-import { getSupabase } from "@/lib/supabase/client";
+import { getUserClient, unauthorized } from "@/lib/supabase/server-auth";
 import { generateInterpretingPrompt } from "@/lib/ai/practice";
 import type { InterpretingMistake } from "@/lib/ai/practice";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-export async function GET() {
-  const supabase = getSupabase();
+export async function GET(request: Request) {
+  const auth = await getUserClient(request);
+  if (!auth) return unauthorized();
+  const supabase = auth.client;
+
   const { data, error } = await supabase
     .from("mistake_book")
     .select("*")
+    .eq("user_id", auth.user.id)
     .order("wrong_count", { ascending: false })
     .order("created_at", { ascending: true });
 

@@ -1,16 +1,21 @@
 import { NextResponse } from "next/server";
-import { getSupabase } from "@/lib/supabase/client";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { getUserClient, unauthorized } from "@/lib/supabase/server-auth";
 import { chatReply } from "@/lib/ai/practice";
 import type { ChatMessage } from "@/lib/ai/deepseek";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-async function getTopicContext(topic: string): Promise<string> {
-  const supabase = getSupabase();
+async function getTopicContext(
+  supabase: SupabaseClient,
+  userId: string,
+  topic: string,
+): Promise<string> {
   const { data: materials } = await supabase
     .from("materials")
     .select("id, title")
+    .eq("user_id", userId)
     .contains("tags", [topic]);
 
   if (!materials?.length) {
@@ -21,6 +26,7 @@ async function getTopicContext(topic: string): Promise<string> {
   const { data: cards } = await supabase
     .from("corpus_cards")
     .select("category, content, zh")
+    .eq("user_id", userId)
     .eq("status", "saved")
     .in("material_id", ids);
 
@@ -35,6 +41,9 @@ async function getTopicContext(topic: string): Promise<string> {
 }
 
 export async function POST(request: Request) {
+  const auth = await getUserClient(request);
+  if (!auth) return unauthorized();
+
   let body: { topic?: string; history?: { role: string; content: string }[] };
   try {
     body = await request.json();
@@ -52,7 +61,7 @@ export async function POST(request: Request) {
     content: h.content,
   }));
 
-  const context = await getTopicContext(topic);
+  const context = await getTopicContext(auth.client, auth.user.id, topic);
   const reply = await chatReply(context, messages);
   return NextResponse.json({ reply });
 }

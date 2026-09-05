@@ -2,18 +2,20 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useAuth, signOut } from "@/lib/auth";
 
 const navItems = [
   { href: "/corpus", label: "语料库" },
   { href: "/practice", label: "口语练习" },
   { href: "/mistakes", label: "错题本" },
-  { href: "/polish", label: "AI 润色" },
-  { href: "/slang", label: "方言俗语" },
-  { href: "/shadowing", label: "影子跟读" },
+  { href: "/polish", label: "写作润色" },
 ];
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);
+  const { user } = useAuth();
+  const router = useRouter();
 
   return (
     <header className="sticky top-0 z-50 border-b border-orange-100 bg-white/85 backdrop-blur">
@@ -50,6 +52,31 @@ export default function Navbar() {
           >
             开始练习
           </Link>
+          {user ? (
+            <div className="ml-3 flex items-center gap-2">
+              <span className="max-w-[140px] truncate text-xs text-zinc-500">
+                {user.email}
+              </span>
+              <button
+                onClick={() => {
+                  void signOut().then(() => {
+                    router.push("/");
+                    router.refresh();
+                  });
+                }}
+                className="rounded-lg border border-zinc-200 px-3 py-2 text-xs font-medium text-zinc-600 hover:bg-zinc-50"
+              >
+                退出
+              </button>
+            </div>
+          ) : (
+            <Link
+              href="/login"
+              className="ml-3 rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+            >
+              登录
+            </Link>
+          )}
         </div>
 
         <button
@@ -111,6 +138,33 @@ export default function Navbar() {
             >
               开始练习
             </Link>
+            {user ? (
+              <div className="flex items-center justify-between px-3 py-2">
+                <span className="truncate text-xs text-zinc-500">
+                  {user.email}
+                </span>
+                <button
+                  onClick={() => {
+                    void signOut().then(() => {
+                      setOpen(false);
+                      router.push("/");
+                      router.refresh();
+                    });
+                  }}
+                  className="text-xs font-medium text-zinc-600 hover:text-orange-600"
+                >
+                  退出
+                </button>
+              </div>
+            ) : (
+              <Link
+                href="/login"
+                onClick={() => setOpen(false)}
+                className="mt-1 block rounded-lg border border-zinc-200 px-3 py-2 text-center text-sm font-medium text-zinc-700"
+              >
+                登录 / 注册
+              </Link>
+            )}
           </div>
         </div>
       )}

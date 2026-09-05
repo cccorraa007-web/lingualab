@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import InterpretingPractice from "@/components/InterpretingPractice";
+import { apiFetch } from "@/lib/auth";
 
 interface Mistake {
   id: string;
@@ -24,7 +25,7 @@ export default function MistakesPage() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/mistakes")
+    apiFetch("/api/mistakes")
       .then((r) => r.json())
       .then((d) => {
         if (cancelled) return;
@@ -47,7 +48,7 @@ export default function MistakesPage() {
   async function saveEdit() {
     if (!editForm) return;
     try {
-      const res = await fetch(`/api/mistakes/${editForm.id}`, {
+      const res = await apiFetch(`/api/mistakes/${editForm.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -71,7 +72,7 @@ export default function MistakesPage() {
   async function handleDelete(id: string) {
     if (!window.confirm("确定删除这条错题吗？")) return;
     try {
-      await fetch(`/api/mistakes/${id}`, { method: "DELETE" });
+      await apiFetch(`/api/mistakes/${id}`, { method: "DELETE" });
       setReloadKey((k) => k + 1);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));

@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
-import { getSupabase } from "@/lib/supabase/client";
+import { getUserClient, unauthorized } from "@/lib/supabase/server-auth";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
+  const auth = await getUserClient(request);
+  if (!auth) return unauthorized();
+  const supabase = auth.client;
+
   let body: {
     material_id?: string;
     text?: string;
@@ -24,10 +28,10 @@ export async function POST(request: Request) {
     );
   }
 
-  const supabase = getSupabase();
   const { data, error } = await supabase
     .from("annotations")
     .insert({
+      user_id: auth.user.id,
       material_id,
       text: text.trim(),
       color: color || "yellow",

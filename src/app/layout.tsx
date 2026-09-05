@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "HablaYa · 西语听说训练",
   description:
-    "把读过的西语，变成能说的西语。语料库 + 口语练习 + AI 润色 + 方言俗语 + 影子跟读。",
+    "把读过的西语，变成能说的西语。语料库 + 口语练习 + 写作润色。",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

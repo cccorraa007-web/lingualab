@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSupabase } from "@/lib/supabase/client";
+import { getUserClient, unauthorized } from "@/lib/supabase/server-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -7,6 +7,10 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const auth = await getUserClient(request);
+  if (!auth) return unauthorized();
+  const supabase = auth.client;
+
   const { id } = await params;
   let body: {
     error_type?: string;
@@ -21,7 +25,6 @@ export async function PATCH(
     return NextResponse.json({ error: "请求体不是合法 JSON" }, { status: 400 });
   }
 
-  const supabase = getSupabase();
   const update: Record<string, unknown> = {};
   if (typeof body.error_type === "string") update.error_type = body.error_type;
   if (typeof body.wrong === "string") update.wrong = body.wrong;
@@ -33,6 +36,7 @@ export async function PATCH(
     .from("mistake_book")
     .update(update)
     .eq("id", id)
+    .eq("user_id", auth.user.id)
     .select()
     .single();
 
@@ -44,13 +48,20 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const { id } = await params;
-  const supabase = getSupabase();
+  const auth = await getUserClient(request);
+  if (!auth) return unauthorized();
+  const supabase = auth.client;
 
-  const { error } = await supabase.from("mistake_book").delete().eq("id", id);
+  const { id } = await params;
+
+  const { error } = await supabase
+    .from("mistake_book")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", auth.user.id);
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

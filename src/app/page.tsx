@@ -33,23 +33,9 @@ const features = [
   {
     href: "/polish",
     num: "3",
-    title: "AI 润色",
+    title: "写作润色",
     subtitle: "Pulir",
     desc: "基于真实语料的改写，按商务/日常等场景切换语气，每条修改都告诉你为什么。",
-  },
-  {
-    href: "/slang",
-    num: "4",
-    title: "方言俗语",
-    subtitle: "Slang",
-    desc: "输入即标注来源地区，多国说法对照，不再怕听不懂当地口音。",
-  },
-  {
-    href: "/shadowing",
-    num: "5",
-    title: "影子跟读",
-    subtitle: "Shadowing",
-    desc: "变速播放 + 长音频自动切片，逐句对比打分，练出地道的语调和节奏。",
   },
 ];
 
@@ -64,7 +50,7 @@ const steps = [
   },
   {
     title: "转化输出",
-    desc: "对话、润色、跟读，把被动的输入变成能说的西语。",
+    desc: "对话、润色，把被动的输入变成能说的西语。",
   },
 ];
 
@@ -80,7 +66,7 @@ export default function Home() {
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-zinc-600">
             面向中国西语学习者的「输入 → 输出」训练平台。自动建立你的专属语料库，
-            围绕它做对话、润色、跟读，摆脱「会做题、说不出」的困境。
+            围绕它做对话、润色，摆脱「会做题、说不出」的困境。
           </p>
           <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link
@@ -120,7 +106,7 @@ export default function Home() {
       {/* 功能模块 */}
       <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
         <h2 className="text-center text-2xl font-bold tracking-tight text-zinc-900 sm:text-3xl">
-          五大功能，打通听说
+          三大功能，打通听说
         </h2>
         <p className="mx-auto mt-3 max-w-2xl text-center text-zinc-600">
           语料库是地基，其余功能都围绕它，把积累转化成真正会用的能力。

@@ -1,0 +1,126 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { signIn, signUp } from "@/lib/auth";
+
+export default function LoginPage() {
+  const router = useRouter();
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function submit() {
+    setError("");
+    setNotice("");
+    if (!email.trim() || !password) {
+      setError("请填写邮箱和密码");
+      return;
+    }
+    setLoading(true);
+    const err =
+      mode === "signin"
+        ? await signIn(email.trim(), password)
+        : await signUp(email.trim(), password);
+    setLoading(false);
+
+    if (err) {
+      setError(err);
+      return;
+    }
+    if (mode === "signup") {
+      setNotice("注册成功！请查收邮箱里的确认邮件，点击确认后再登录。");
+      setMode("signin");
+      return;
+    }
+    router.push("/corpus");
+    router.refresh();
+  }
+
+  return (
+    <div className="mx-auto flex max-w-sm flex-col gap-6 px-4 py-16 sm:px-6">
+      <div className="text-center">
+        <h1 className="text-2xl font-bold tracking-tight text-zinc-900">
+          {mode === "signin" ? "登录 HablaYa" : "注册 HablaYa"}
+        </h1>
+        <p className="mt-2 text-sm text-zinc-500">
+          登录后你的语料库、错题本、练习记录都只属于你自己
+        </p>
+      </div>
+
+      <div className="rounded-2xl border border-zinc-100 bg-white p-6">
+        <div className="space-y-4">
+          <div>
+            <label className="text-xs font-semibold text-zinc-600">邮箱</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              className="mt-1 w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm outline-none focus:border-orange-400"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-zinc-600">密码</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void submit();
+              }}
+              placeholder={mode === "signup" ? "至少 6 位" : ""}
+              className="mt-1 w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm outline-none focus:border-orange-400"
+            />
+          </div>
+
+          {error && (
+            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
+              {error}
+            </p>
+          )}
+          {notice && (
+            <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-600">
+              {notice}
+            </p>
+          )}
+
+          <button
+            onClick={() => void submit()}
+            disabled={loading}
+            className="w-full rounded-lg bg-orange-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-50"
+          >
+            {loading ? "处理中…" : mode === "signin" ? "登录" : "注册"}
+          </button>
+        </div>
+      </div>
+
+      <p className="text-center text-sm text-zinc-500">
+        {mode === "signin" ? (
+          <>
+            还没有账号？{" "}
+            <button
+              onClick={() => setMode("signup")}
+              className="font-medium text-orange-600 hover:underline"
+            >
+              去注册
+            </button>
+          </>
+        ) : (
+          <>
+            已有账号？{" "}
+            <button
+              onClick={() => setMode("signin")}
+              className="font-medium text-orange-600 hover:underline"
+            >
+              去登录
+            </button>
+          </>
+        )}
+      </p>
+    </div>
+  );
+}

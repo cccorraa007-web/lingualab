@@ -5,6 +5,7 @@ import type { FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { topicName, resolveTopicSlug } from "@/lib/topics";
+import { apiFetch } from "@/lib/auth";
 
 interface Material {
   id: string;
@@ -40,7 +41,7 @@ export default function CorpusPage() {
           ? `/api/materials?tag=${tag}`
           : `/api/materials?q=${encodeURIComponent(search.trim())}`;
       }
-      fetch(url)
+      apiFetch(url)
         .then((r) => r.json())
         .then((data) => {
           if (cancelled) return;
@@ -66,7 +67,7 @@ export default function CorpusPage() {
     setImporting(true);
     setError("");
     try {
-      const res = await fetch("/api/materials", {
+      const res = await apiFetch("/api/materials", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -87,7 +88,7 @@ export default function CorpusPage() {
   async function handleDelete(id: string) {
     if (!window.confirm("确定删除这篇文章及其所有卡片吗？")) return;
     try {
-      await fetch(`/api/materials/${id}`, { method: "DELETE" });
+      await apiFetch(`/api/materials/${id}`, { method: "DELETE" });
       setReloadKey((k) => k + 1);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -101,7 +102,7 @@ export default function CorpusPage() {
 
   async function saveRename(id: string) {
     try {
-      const res = await fetch(`/api/materials/${id}`, {
+      const res = await apiFetch(`/api/materials/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title: editTitle.trim() || null }),

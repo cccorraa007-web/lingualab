@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { TOPICS, topicName } from "@/lib/topics";
+import { apiFetch } from "@/lib/auth";
 
 interface ItemExtra {
   pos?: string;
@@ -61,7 +62,7 @@ export default function ReviewPage() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`/api/materials/${params.id}`)
+    apiFetch(`/api/materials/${params.id}`)
       .then((r) => r.json())
       .then((d) => {
         if (cancelled) return;
@@ -111,7 +112,7 @@ export default function ReviewPage() {
     setSaving(true);
     setError("");
     try {
-      const resM = await fetch(`/api/materials/${params.id}`, {
+      const resM = await apiFetch(`/api/materials/${params.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title: title.trim() || null, tags }),
@@ -123,7 +124,7 @@ export default function ReviewPage() {
       const unselected = items.filter((i) => !selected.has(i.id));
 
       if (selectedItems.length > 0) {
-        const res = await fetch("/api/cards", {
+        const res = await apiFetch("/api/cards", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ ids: selectedItems.map((i) => i.id) }),
@@ -132,7 +133,7 @@ export default function ReviewPage() {
         if (!res.ok) throw new Error(d.error || "保存失败");
       }
       for (const it of unselected) {
-        await fetch(`/api/cards/${it.id}`, { method: "DELETE" });
+        await apiFetch(`/api/cards/${it.id}`, { method: "DELETE" });
       }
       router.push(`/corpus/${params.id}`);
     } catch (e) {

@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
-import { getSupabase } from "@/lib/supabase/client";
+import { getUserClient, unauthorized } from "@/lib/supabase/server-auth";
 import { generateExamQuestion } from "@/lib/ai/practice";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 export async function POST(request: Request) {
+  const auth = await getUserClient(request);
+  if (!auth) return unauthorized();
+  const supabase = auth.client;
+
   let body: { type?: string };
   try {
     body = await request.json();
@@ -14,11 +18,11 @@ export async function POST(request: Request) {
   }
 
   const type = body.type || "t1";
-  const supabase = getSupabase();
 
   const { data: prompts } = await supabase
     .from("corpus_cards")
     .select("content")
+    .eq("user_id", auth.user.id)
     .eq("status", "saved")
     .eq("category", "prompt");
 

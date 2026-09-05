@@ -1,19 +1,23 @@
 import { NextResponse } from "next/server";
-import { getSupabase } from "@/lib/supabase/client";
+import { getUserClient, unauthorized } from "@/lib/supabase/server-auth";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const auth = await getUserClient(request);
+  if (!auth) return unauthorized();
+  const supabase = auth.client;
+
   const { id } = await params;
-  const supabase = getSupabase();
 
   const { data: material, error: mErr } = await supabase
     .from("materials")
     .select("*")
     .eq("id", id)
+    .eq("user_id", auth.user.id)
     .single();
   if (mErr) {
     return NextResponse.json(
@@ -26,6 +30,7 @@ export async function GET(
     .from("corpus_cards")
     .select("*")
     .eq("material_id", id)
+    .eq("user_id", auth.user.id)
     .order("created_at", { ascending: true });
   if (cErr) {
     return NextResponse.json({ error: cErr.message }, { status: 500 });
@@ -35,6 +40,7 @@ export async function GET(
     .from("annotations")
     .select("*")
     .eq("material_id", id)
+    .eq("user_id", auth.user.id)
     .order("created_at", { ascending: true });
   if (aErr) {
     return NextResponse.json({ error: aErr.message }, { status: 500 });
@@ -51,6 +57,10 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const auth = await getUserClient(request);
+  if (!auth) return unauthorized();
+  const supabase = auth.client;
+
   const { id } = await params;
   let body: { title?: string | null; tags?: string[] };
   try {
@@ -59,7 +69,6 @@ export async function PATCH(
     return NextResponse.json({ error: "请求体不是合法 JSON" }, { status: 400 });
   }
 
-  const supabase = getSupabase();
   const update: Record<string, unknown> = {};
   if (typeof body.title === "string" || body.title === null) {
     update.title = body.title;
@@ -72,6 +81,7 @@ export async function PATCH(
     .from("materials")
     .update(update)
     .eq("id", id)
+    .eq("user_id", auth.user.id)
     .select()
     .single();
 
@@ -83,13 +93,20 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const { id } = await params;
-  const supabase = getSupabase();
+  const auth = await getUserClient(request);
+  if (!auth) return unauthorized();
+  const supabase = auth.client;
 
-  const { error } = await supabase.from("materials").delete().eq("id", id);
+  const { id } = await params;
+
+  const { error } = await supabase
+    .from("materials")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", auth.user.id);
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

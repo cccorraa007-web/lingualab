@@ -1,13 +1,17 @@
 import { NextResponse } from "next/server";
-import { getSupabase } from "@/lib/supabase/client";
+import { getUserClient, unauthorized } from "@/lib/supabase/server-auth";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
-  const supabase = getSupabase();
+export async function GET(request: Request) {
+  const auth = await getUserClient(request);
+  if (!auth) return unauthorized();
+  const supabase = auth.client;
+
   const { data, error } = await supabase
     .from("mistake_book")
     .select("*")
+    .eq("user_id", auth.user.id)
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -18,6 +22,10 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const auth = await getUserClient(request);
+  if (!auth) return unauthorized();
+  const supabase = auth.client;
+
   let body: {
     items?: {
       error_type?: string;
@@ -41,6 +49,7 @@ export async function POST(request: Request) {
   const rows = items
     .filter((it) => it.wrong && it.correct)
     .map((it) => ({
+      user_id: auth.user.id,
       error_type: it.error_type || "其他",
       wrong: it.wrong as string,
       correct: it.correct as string,
@@ -52,7 +61,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "错题内容不完整" }, { status: 400 });
   }
 
-  const supabase = getSupabase();
   const { data, error } = await supabase
     .from("mistake_book")
     .insert(rows)

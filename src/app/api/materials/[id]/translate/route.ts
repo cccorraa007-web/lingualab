@@ -1,21 +1,25 @@
 import { NextResponse } from "next/server";
-import { getSupabase } from "@/lib/supabase/client";
+import { getUserClient, unauthorized } from "@/lib/supabase/server-auth";
 import { translateText } from "@/lib/ai/pipeline";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const auth = await getUserClient(request);
+  if (!auth) return unauthorized();
+  const supabase = auth.client;
+
   const { id } = await params;
-  const supabase = getSupabase();
 
   const { data: material, error: mErr } = await supabase
     .from("materials")
     .select("raw_text, translation")
     .eq("id", id)
+    .eq("user_id", auth.user.id)
     .single();
   if (mErr) {
     return NextResponse.json({ error: "材料不存在" }, { status: 404 });
@@ -27,7 +31,11 @@ export async function POST(
 
   try {
     const translation = await translateText(material.raw_text);
-    await supabase.from("materials").update({ translation }).eq("id", id);
+    await supabase
+      .from("materials")
+      .update({ translation })
+      .eq("id", id)
+      .eq("user_id", auth.user.id);
     return NextResponse.json({ translation });
   } catch (e) {
     return NextResponse.json(

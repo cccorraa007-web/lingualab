@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { topicName } from "@/lib/topics";
+import { apiFetch } from "@/lib/auth";
 
 interface CardExtra {
   pos?: string;
@@ -225,7 +226,7 @@ export default function MaterialDetailPage() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`/api/materials/${params.id}`)
+    apiFetch(`/api/materials/${params.id}`)
       .then((r) => r.json())
       .then((d) => {
         if (cancelled) return;
@@ -252,7 +253,7 @@ export default function MaterialDetailPage() {
 
   async function handleDeleteCard(id: string) {
     try {
-      await fetch(`/api/cards/${id}`, { method: "DELETE" });
+      await apiFetch(`/api/cards/${id}`, { method: "DELETE" });
       setReloadKey((k) => k + 1);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -261,7 +262,7 @@ export default function MaterialDetailPage() {
 
   async function handleDeleteAnnotation(id: string) {
     try {
-      await fetch(`/api/annotations/${id}`, { method: "DELETE" });
+      await apiFetch(`/api/annotations/${id}`, { method: "DELETE" });
       setReloadKey((k) => k + 1);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -287,7 +288,7 @@ export default function MaterialDetailPage() {
   async function createAnnotation(color: string, note?: string) {
     if (!toolbar) return;
     try {
-      const res = await fetch("/api/annotations", {
+      const res = await apiFetch("/api/annotations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -312,7 +313,7 @@ export default function MaterialDetailPage() {
   async function createCardFromSelection() {
     if (!toolbar) return;
     try {
-      const res = await fetch("/api/cards", {
+      const res = await apiFetch("/api/cards", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -338,7 +339,7 @@ export default function MaterialDetailPage() {
     setTranslating(true);
     setError("");
     try {
-      const res = await fetch(`/api/materials/${params.id}/translate`, {
+      const res = await apiFetch(`/api/materials/${params.id}/translate`, {
         method: "POST",
       });
       const data = await res.json();

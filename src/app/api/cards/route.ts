@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
-import { getSupabase } from "@/lib/supabase/client";
+import { getUserClient, unauthorized } from "@/lib/supabase/server-auth";
 
 export const dynamic = "force-dynamic";
 
 export async function PATCH(request: Request) {
+  const auth = await getUserClient(request);
+  if (!auth) return unauthorized();
+  const supabase = auth.client;
+
   let body: { ids?: string[] };
   try {
     body = await request.json();
@@ -19,11 +23,11 @@ export async function PATCH(request: Request) {
     );
   }
 
-  const supabase = getSupabase();
   const { data, error } = await supabase
     .from("corpus_cards")
     .update({ status: "saved" })
     .in("id", ids)
+    .eq("user_id", auth.user.id)
     .select();
 
   if (error) {
@@ -34,6 +38,10 @@ export async function PATCH(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const auth = await getUserClient(request);
+  if (!auth) return unauthorized();
+  const supabase = auth.client;
+
   let body: {
     material_id?: string;
     category?: string;
@@ -55,10 +63,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "缺少 material_id" }, { status: 400 });
   }
 
-  const supabase = getSupabase();
   const { data, error } = await supabase
     .from("corpus_cards")
     .insert({
+      user_id: auth.user.id,
       material_id,
       category,
       content: content.trim(),
