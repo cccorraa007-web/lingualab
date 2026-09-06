@@ -29,8 +29,8 @@ export async function POST(
 
   const { id, readingId } = await params;
   const role = await myRole(supabase, auth.user.id, id);
-  if (role !== "teacher" && role !== "leader") {
-    return NextResponse.json({ error: "只有教师或班委能添加题目" }, { status: 403 });
+  if (role !== "teacher") {
+    return NextResponse.json({ error: "只有教师能添加题目" }, { status: 403 });
   }
 
   let body: { sentence?: string; question?: string };

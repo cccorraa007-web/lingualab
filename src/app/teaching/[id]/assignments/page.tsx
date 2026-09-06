@@ -36,7 +36,7 @@ function nowTime(): string {
 
 export default function ClassroomAssignmentsPage() {
   const params = useParams<{ id: string }>();
-  const [myRole, setMyRole] = useState<"teacher" | "leader" | "student">("student");
+  const [myRole, setMyRole] = useState<"teacher" | "student">("student");
   const [readings, setReadings] = useState<Reading[]>([]);
   const [materials, setMaterials] = useState<Material[]>([]);
   const [error, setError] = useState("");
@@ -142,7 +142,7 @@ export default function ClassroomAssignmentsPage() {
       </Link>
 
       <h1 className="mt-3 text-3xl font-bold tracking-tight text-zinc-900">
-        {myRole === "teacher" || myRole === "leader" ? "布置作业" : "课后作业"}
+        {myRole === "teacher" ? "布置作业" : "课后作业"}
       </h1>
 
       {error && (
@@ -155,7 +155,7 @@ export default function ClassroomAssignmentsPage() {
       <section className="mt-8">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-zinc-900">必读文章</h2>
-          {(myRole === "teacher" || myRole === "leader") && (
+          {myRole === "teacher" && (
             <button
               onClick={() => setShowPublish(!showPublish)}
               className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700"
@@ -165,7 +165,13 @@ export default function ClassroomAssignmentsPage() {
           )}
         </div>
 
-        {(myRole === "teacher" || myRole === "leader") && showPublish && (
+        {myRole === "teacher" && (
+          <p className="mt-2 text-xs text-zinc-400">
+            发布后，点进文章可「划线出题」和「勾画批注」，用于准备备课材料。
+          </p>
+        )}
+
+        {myRole === "teacher" && showPublish && (
           <div className="mt-3 rounded-xl border border-orange-200 bg-orange-50/40 p-4">
             <div className="flex items-center gap-2">
               <select

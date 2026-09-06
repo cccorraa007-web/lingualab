@@ -36,8 +36,8 @@ export async function POST(
 
   const { id, answerId } = await params;
   const role = await myRole(supabase, auth.user.id, id);
-  if (role !== "teacher" && role !== "leader") {
-    return NextResponse.json({ error: "只有教师或班委能批改" }, { status: 403 });
+  if (role !== "teacher") {
+    return NextResponse.json({ error: "只有教师能批改" }, { status: 403 });
   }
 
   let body: { feedback?: string };

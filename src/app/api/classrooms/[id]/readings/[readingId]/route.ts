@@ -69,7 +69,7 @@ export async function GET(
       .from("reading_answers")
       .select("*")
       .in("question_id", questionIds);
-    if (role !== "teacher" && role !== "leader") {
+    if (role !== "teacher") {
       q = q.eq("user_id", auth.user.id);
     }
     const { data: ans, error: ansErr } = await q;

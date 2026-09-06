@@ -9,7 +9,7 @@ const TEACHER_CARDS = [
   {
     href: "members",
     title: "班级成员",
-    desc: "管理成员，审批加入申请，指定班委与教师。",
+    desc: "管理成员，审批加入申请，指定教师。",
     emoji: "👥",
   },
   {
@@ -86,7 +86,7 @@ export default function ClassroomDashboardPage() {
       .catch(() => {});
   }, [params.id]);
 
-  const isTeacher = myRole === "teacher" || myRole === "leader";
+  const isTeacher = myRole === "teacher";
   const cards = isTeacher ? TEACHER_CARDS : STUDENT_CARDS;
 
   return (

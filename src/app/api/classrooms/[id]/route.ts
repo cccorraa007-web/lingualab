@@ -27,7 +27,7 @@ export async function GET(
       { status: 403 },
     );
   }
-  const myRole = membership.role as "teacher" | "leader" | "student";
+  const myRole = membership.role as "teacher" | "student";
 
   const { data: classroom, error: cErr } = await supabase
     .from("classrooms")
@@ -46,7 +46,7 @@ export async function GET(
     .order("created_at", { ascending: true });
 
   let pending: unknown[] = [];
-  if (myRole === "teacher" || myRole === "leader") {
+  if (myRole === "teacher") {
     const { data: p } = await supabase
       .from("classroom_members")
       .select("id, email, role, status, created_at")

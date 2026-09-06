@@ -314,7 +314,7 @@ export default function ReadingPage() {
     );
   }
 
-  const isTeacher = myRole === "teacher" || myRole === "leader";
+  const isTeacher = myRole === "teacher";
   const rules = buildRules(annotations, questions);
 
   return (

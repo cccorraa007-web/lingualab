@@ -8,7 +8,7 @@ interface Classroom {
   id: string;
   name: string;
   invite_code: string;
-  my_role: "teacher" | "leader" | "student";
+  my_role: "teacher" | "student";
 }
 
 export default function TeachingPage() {
@@ -206,11 +206,7 @@ export default function TeachingPage() {
             <div>
               <p className="font-semibold text-zinc-900">{c.name}</p>
               <p className="mt-1 text-xs text-zinc-400">
-                {c.my_role === "teacher"
-                  ? "教师"
-                  : c.my_role === "leader"
-                    ? "班委"
-                    : "学生"}
+                {c.my_role === "teacher" ? "教师" : "学生"}
               </p>
             </div>
             <span className="text-sm text-orange-600">进入 →</span>
