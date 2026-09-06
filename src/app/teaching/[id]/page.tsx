@@ -21,9 +21,9 @@ const TEACHER_CARDS = [
   },
   {
     href: "speaking",
-    title: "口语练习",
-    desc: "布置口语任务，查看学生表现。（建设中）",
-    emoji: "🎤",
+    title: "备课资料库",
+    desc: "管理备课资料，准备教学课件。（建设中）",
+    emoji: "📚",
   },
 ];
 
@@ -42,8 +42,8 @@ const STUDENT_CARDS = [
   },
   {
     href: "speaking",
-    title: "口语练习",
-    desc: "完成口语任务，练习表达。（建设中）",
+    title: "课外练习",
+    desc: "完成课外口语练习，练习表达。（建设中）",
     emoji: "🎤",
   },
 ];
