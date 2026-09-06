@@ -8,6 +8,7 @@ import { LANGS, PRODUCT_NAME, type TargetLang } from "@/lib/language";
 export default function LoginPage() {
   const router = useRouter();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [lang, setLang] = useState<TargetLang>("es");
@@ -31,10 +32,16 @@ export default function LoginPage() {
     setLoading(true);
     try {
       if (mode === "signup") {
+        if (!username.trim()) {
+          setError("请填写用户名");
+          setLoading(false);
+          return;
+        }
         const { error: err, needsConfirm } = await signUp(
           email.trim(),
           password,
           lang,
+          username,
         );
         setLoading(false);
         if (err) {
@@ -97,6 +104,17 @@ export default function LoginPage() {
               ))}
             </div>
           </div>
+          {mode === "signup" && (
+            <div>
+              <label className="text-xs font-semibold text-zinc-600">用户名</label>
+              <input
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="用于展示和头像"
+                className="mt-1 w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm outline-none focus:border-orange-400"
+              />
+            </div>
+          )}
           <div>
             <label className="text-xs font-semibold text-zinc-600">邮箱</label>
             <input

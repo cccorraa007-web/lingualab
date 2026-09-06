@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAuth, signOut, useTargetLang, setTargetLang } from "@/lib/auth";
 import { LANGS, PRODUCT_NAME, type TargetLang } from "@/lib/language";
+import UserAvatar from "@/components/UserAvatar";
 
 const selfStudyItems = [
   { href: "/corpus", label: "语料库" },
@@ -20,6 +21,8 @@ export default function Navbar() {
   const { user } = useAuth();
   const lang = useTargetLang();
   const router = useRouter();
+  const username = (user?.user_metadata?.username as string) || user?.email || "";
+  const avatarUrl = (user?.user_metadata?.avatar_url as string) || "";
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const next = searchParams.get("next");
@@ -101,9 +104,9 @@ export default function Navbar() {
           )}
           {user ? (
             <div className="ml-3 flex items-center gap-2">
-              <span className="max-w-[140px] truncate text-xs text-zinc-500">
-                {user.email}
-              </span>
+              <Link href="/profile" title="个人主页" className="shrink-0">
+                <UserAvatar name={username} url={avatarUrl} size={32} />
+              </Link>
               <button
                 onClick={() => {
                   void signOut().then(() => {
@@ -211,9 +214,16 @@ export default function Navbar() {
             </Link>
             {user ? (
               <div className="flex items-center justify-between px-3 py-2">
-                <span className="truncate text-xs text-zinc-500">
-                  {user.email}
-                </span>
+                <Link
+                  href="/profile"
+                  onClick={() => setOpen(false)}
+                  className="flex items-center gap-2"
+                >
+                  <UserAvatar name={username} url={avatarUrl} size={28} />
+                  <span className="truncate text-xs text-zinc-500">
+                    {username}
+                  </span>
+                </Link>
                 <button
                   onClick={() => {
                     void signOut().then(() => {
