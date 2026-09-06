@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { apiFetch } from "@/lib/auth";
 import { langMeta } from "@/lib/language";
+import WrittenAssignments from "./WrittenAssignments";
 
 interface Reading {
   id: string;
@@ -331,13 +332,7 @@ export default function ClassroomAssignmentsPage() {
         </div>
       </section>
 
-      {/* 笔头作业（待开发） */}
-      <section className="mt-8">
-        <h2 className="text-lg font-semibold text-zinc-900">笔头作业</h2>
-        <div className="mt-3 rounded-2xl border border-dashed border-zinc-200 p-10 text-center text-zinc-400">
-          笔头作业功能建设中，敬请期待
-        </div>
-      </section>
+      <WrittenAssignments classroomId={params.id} role={myRole} />
     </div>
   );
 }
