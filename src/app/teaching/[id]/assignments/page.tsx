@@ -12,6 +12,9 @@ interface Reading {
   starts_at: string;
   ends_at: string | null;
   created_at: string;
+  question_count?: number;
+  answered_count?: number;
+  done?: boolean;
 }
 
 interface Material {
@@ -253,25 +256,50 @@ export default function ClassroomAssignmentsPage() {
           ) : (
             readings.map((r) => {
               const s = readingStatus(r);
+              const isActive = s.text === "进行中";
+              const hasQuestions = (r.question_count ?? 0) > 0;
+              const pending = myRole === "student" && isActive && !r.done;
               return (
                 <Link
                   key={r.id}
                   href={`/teaching/${params.id}/readings/${r.id}`}
                   className="flex items-center justify-between rounded-xl border border-zinc-100 bg-white p-4 transition hover:shadow-md"
                 >
-                  <div className="min-w-0">
-                    <p className="font-medium text-zinc-900">{r.title}</p>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="truncate font-medium text-zinc-900">
+                        {r.title}
+                      </p>
+                      {pending && (
+                        <span className="h-2 w-2 shrink-0 rounded-full bg-red-500" />
+                      )}
+                    </div>
                     <p className="mt-1 text-xs text-zinc-400">
                       {r.ends_at
                         ? `截止 ${new Date(r.ends_at).toLocaleString("zh-CN")}`
                         : "长期有效"}
                     </p>
                   </div>
-                  <span
-                    className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${s.cls}`}
-                  >
-                    {s.text}
-                  </span>
+                  <div className="ml-4 flex shrink-0 items-center gap-2">
+                    {myRole === "student" && isActive && hasQuestions && (
+                      <span
+                        className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                          r.done
+                            ? "bg-emerald-100 text-emerald-700"
+                            : "bg-red-100 text-red-600"
+                        }`}
+                      >
+                        {r.done
+                          ? `已完成 ${r.answered_count}/${r.question_count}`
+                          : `待完成 ${r.answered_count}/${r.question_count}`}
+                      </span>
+                    )}
+                    <span
+                      className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${s.cls}`}
+                    >
+                      {s.text}
+                    </span>
+                  </div>
                 </Link>
               );
             })

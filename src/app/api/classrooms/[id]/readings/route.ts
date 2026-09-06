@@ -43,7 +43,49 @@ export async function GET(
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ readings: data ?? [] });
+  let readings = data ?? [];
+
+  if (role === "student" && readings.length > 0) {
+    const readingIds = readings.map((r) => r.id);
+    const { data: questions } = await supabase
+      .from("reading_questions")
+      .select("id, reading_id")
+      .in("reading_id", readingIds);
+
+    const questionCount: Record<string, number> = {};
+    const questionToReading: Record<string, string> = {};
+    for (const q of questions ?? []) {
+      questionCount[q.reading_id] = (questionCount[q.reading_id] ?? 0) + 1;
+      questionToReading[q.id] = q.reading_id;
+    }
+
+    const questionIds = Object.keys(questionToReading);
+    const answeredCount: Record<string, number> = {};
+    if (questionIds.length > 0) {
+      const { data: answers } = await supabase
+        .from("reading_answers")
+        .select("question_id")
+        .eq("user_id", auth.user.id)
+        .in("question_id", questionIds);
+      for (const a of answers ?? []) {
+        const rid = questionToReading[a.question_id];
+        answeredCount[rid] = (answeredCount[rid] ?? 0) + 1;
+      }
+    }
+
+    readings = readings.map((r) => {
+      const qc = questionCount[r.id] ?? 0;
+      const ac = answeredCount[r.id] ?? 0;
+      return {
+        ...r,
+        question_count: qc,
+        answered_count: ac,
+        done: qc === 0 || ac >= qc,
+      };
+    });
+  }
+
+  return NextResponse.json({ readings });
 }
 
 export async function POST(

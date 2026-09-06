@@ -78,8 +78,16 @@ export default function ClassroomDashboardPage() {
         if (d.error) return;
         const now = Date.now();
         const pending = (d.readings ?? []).filter(
-          (r: { ends_at: string | null }) =>
-            !r.ends_at || new Date(r.ends_at).getTime() > now,
+          (r: {
+            starts_at: string;
+            ends_at: string | null;
+            done?: boolean;
+          }) => {
+            const start = new Date(r.starts_at).getTime();
+            const end = r.ends_at ? new Date(r.ends_at).getTime() : Infinity;
+            if (now < start || now > end) return false;
+            return r.done === false;
+          },
         ).length;
         setPendingCount(pending);
       })
