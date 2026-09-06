@@ -259,7 +259,7 @@ export default function ReadingPage() {
     }
   }
 
-  async function submitFeedback(answerId: string) {
+  async function submitFeedback(questionId: string, answerId: string) {
     const feedback = (feedbackInputs[answerId] ?? "").trim();
     if (!feedback) {
       setError("反馈不能为空");
@@ -267,7 +267,7 @@ export default function ReadingPage() {
     }
     try {
       const res = await apiFetch(
-        `/api/classrooms/${params.id}/readings/${params.readingId}/questions/answers/${answerId}/feedback`,
+        `/api/classrooms/${params.id}/readings/${params.readingId}/questions/${questionId}/answers/${answerId}/feedback`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -416,7 +416,7 @@ export default function ReadingPage() {
                                 className="flex-1 rounded-lg border border-zinc-200 px-3 py-1.5 text-sm"
                               />
                               <button
-                                onClick={() => submitFeedback(a.id)}
+                                onClick={() => submitFeedback(q.id, a.id)}
                                 className="rounded-lg bg-orange-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-orange-700"
                               >
                                 提交
