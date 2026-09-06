@@ -142,7 +142,7 @@ export default function ClassroomAssignmentsPage() {
       </Link>
 
       <h1 className="mt-3 text-3xl font-bold tracking-tight text-zinc-900">
-        发布作业
+        {myRole === "teacher" || myRole === "leader" ? "布置作业" : "课后作业"}
       </h1>
 
       {error && (
