@@ -46,7 +46,7 @@ export async function GET(
     .order("created_at", { ascending: true });
 
   let pending: unknown[] = [];
-  if (myRole === "teacher") {
+  if (myRole === "teacher" || myRole === "leader") {
     const { data: p } = await supabase
       .from("classroom_members")
       .select("id, email, role, status, created_at")

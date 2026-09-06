@@ -62,10 +62,28 @@ export async function GET(
     return NextResponse.json({ error: qErr.message }, { status: 500 });
   }
 
+  const questionIds = (questions ?? []).map((q) => q.id);
+  let answers: unknown[] = [];
+  if (questionIds.length > 0) {
+    let q = supabase
+      .from("reading_answers")
+      .select("*")
+      .in("question_id", questionIds);
+    if (role !== "teacher" && role !== "leader") {
+      q = q.eq("user_id", auth.user.id);
+    }
+    const { data: ans, error: ansErr } = await q;
+    if (ansErr) {
+      return NextResponse.json({ error: ansErr.message }, { status: 500 });
+    }
+    answers = ans ?? [];
+  }
+
   return NextResponse.json({
     reading,
     annotations: annotations ?? [],
     questions: questions ?? [],
+    answers,
     my_role: role,
   });
 }

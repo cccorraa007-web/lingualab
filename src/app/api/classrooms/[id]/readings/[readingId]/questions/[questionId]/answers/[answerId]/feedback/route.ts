@@ -21,37 +21,44 @@ async function myRole(
 
 export async function POST(
   request: Request,
-  { params }: { params: Promise<{ id: string; readingId: string }> },
+  { params }: {
+    params: Promise<{
+      id: string;
+      readingId: string;
+      questionId: string;
+      answerId: string;
+    }>;
+  },
 ) {
   const auth = await getUserClient(request);
   if (!auth) return unauthorized();
   const supabase = auth.client;
 
-  const { id, readingId } = await params;
+  const { id, answerId } = await params;
   const role = await myRole(supabase, auth.user.id, id);
   if (role !== "teacher" && role !== "leader") {
-    return NextResponse.json({ error: "只有教师或班委能添加题目" }, { status: 403 });
+    return NextResponse.json({ error: "只有教师或班委能批改" }, { status: 403 });
   }
 
-  let body: { sentence?: string; question?: string };
+  let body: { feedback?: string };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "请求体不是合法 JSON" }, { status: 400 });
   }
 
-  if (!body.sentence?.trim() || !body.question?.trim()) {
-    return NextResponse.json({ error: "缺少句子或题目" }, { status: 400 });
+  if (!body.feedback?.trim()) {
+    return NextResponse.json({ error: "反馈不能为空" }, { status: 400 });
   }
 
   const { data, error } = await supabase
-    .from("reading_questions")
-    .insert({
-      reading_id: readingId,
-      sentence: body.sentence.trim(),
-      question: body.question.trim(),
-      created_by: auth.user.id,
+    .from("reading_answers")
+    .update({
+      feedback: body.feedback.trim(),
+      graded_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     })
+    .eq("id", answerId)
     .select()
     .single();
 
@@ -59,5 +66,5 @@ export async function POST(
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ question: data });
+  return NextResponse.json({ answer: data });
 }

@@ -23,7 +23,7 @@ export async function DELETE(
     .eq("status", "approved")
     .maybeSingle();
   const role = membership?.role as string | undefined;
-  if (role !== "teacher") {
+  if (role !== "teacher" && role !== "leader") {
     return NextResponse.json({ error: "没有删除权限" }, { status: 403 });
   }
 
