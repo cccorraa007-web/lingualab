@@ -103,7 +103,7 @@ export default function MistakesPage() {
             onClick={() => setMode("practice")}
             className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700"
           >
-            口译练习
+            练习
           </button>
           <Link
             href="/practice"

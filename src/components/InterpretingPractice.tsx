@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { apiFetch } from "@/lib/auth";
 import { detectLanguage, langMeta, type TargetLang } from "@/lib/language";
+import type { MistakePracticeMode } from "@/lib/ai/writing";
 
 interface Mistake {
   id: string;
@@ -29,6 +30,7 @@ export default function InterpretingPractice({
   onBack: () => void;
 }) {
   const [lang, setLang] = useState<TargetLang>("es");
+  const [practiceMode, setPracticeMode] = useState<MistakePracticeMode | null>(null);
   const [state, setState] = useState<PracticeState | null>(null);
   const [done, setDone] = useState(false);
   const [doneReason, setDoneReason] = useState("");
@@ -39,13 +41,18 @@ export default function InterpretingPractice({
   const [error, setError] = useState("");
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
 
-  function next() {
+  function next(selectedMode: MistakePracticeMode | null = practiceMode) {
+    if (!selectedMode) return;
     setLoading(true);
     setResult(null);
     setAnswer("");
     setError("");
-    apiFetch("/api/mistakes/practice")
-      .then((r) => r.json())
+    apiFetch(`/api/mistakes/practice?mode=${selectedMode}`)
+      .then(async (r) => {
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || "出题失败");
+        return data;
+      })
       .then((d) => {
         if (d.done) {
           setDone(true);
@@ -54,19 +61,12 @@ export default function InterpretingPractice({
         } else {
           setDone(false);
           setState({ mistake: d.mistake, prompt: d.prompt });
-          setLang(detectLanguage(d.mistake?.correct ?? ""));
+          setLang(d.lang ?? detectLanguage(d.mistake?.correct ?? ""));
         }
       })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)))
       .finally(() => setLoading(false));
   }
-
-  useEffect(() => {
-    const t = setTimeout(() => {
-      next();
-    }, 0);
-    return () => clearTimeout(t);
-  }, []);
 
   async function recognizeAndSend(blob: Blob) {
     try {
@@ -128,6 +128,7 @@ export default function InterpretingPractice({
           id: state.mistake.id,
           answer: text.trim(),
           prompt: state.prompt,
+          mode: practiceMode,
         }),
       });
       const data = await res.json();
@@ -140,19 +141,74 @@ export default function InterpretingPractice({
     }
   }
 
+  function chooseMode(selectedMode: MistakePracticeMode) {
+    setPracticeMode(selectedMode);
+    setDone(false);
+    setDoneReason("");
+    setState(null);
+    setResult(null);
+    next(selectedMode);
+  }
+
+  if (!practiceMode) {
+    return (
+      <div>
+        <button onClick={onBack} className="text-sm text-zinc-500 hover:text-orange-600">
+          ← 返回错题本
+        </button>
+        <div className="mt-3">
+          <h2 className="text-2xl font-bold text-zinc-900">选择练习方式</h2>
+          <p className="mt-2 text-sm text-zinc-500">
+            两种模式都使用你的真实错题生成练习，可以随时返回重新选择。
+          </p>
+        </div>
+        <div className="mt-8 grid gap-4 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => chooseMode("interpret")}
+            className="rounded-2xl border border-orange-200 bg-orange-50/50 p-6 text-left transition hover:border-orange-400 hover:bg-orange-50"
+          >
+            <span className="text-xl font-bold text-zinc-900">口译</span>
+            <span className="mt-2 block text-sm leading-6 text-zinc-600">
+              中文短句，使用语音或文字即时回答，重点练习表达是否自然、准确。
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => chooseMode("translate")}
+            className="rounded-2xl border border-zinc-200 bg-white p-6 text-left transition hover:border-orange-400 hover:bg-orange-50/40"
+          >
+            <span className="text-xl font-bold text-zinc-900">笔译</span>
+            <span className="mt-2 block text-sm leading-6 text-zinc-600">
+              更长、更复杂的中文句子，重点评价句式选择、词性和用词准确性。
+            </span>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const isInterpreting = practiceMode === "interpret";
+  const modeName = isInterpreting ? "口译" : "笔译";
+
   return (
     <div>
-      <button
-        onClick={onBack}
-        className="text-sm text-zinc-500 hover:text-orange-600"
-      >
-        ← 返回错题本
-      </button>
+      <div className="flex items-center gap-4">
+        <button onClick={onBack} className="text-sm text-zinc-500 hover:text-orange-600">
+          ← 返回错题本
+        </button>
+        <button
+          onClick={() => setPracticeMode(null)}
+          className="text-sm text-zinc-500 hover:text-orange-600"
+        >
+          切换模式
+        </button>
+      </div>
 
       <div className="mt-3 flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-zinc-900">口译练习</h2>
+        <h2 className="text-2xl font-bold text-zinc-900">{modeName}练习</h2>
         <span className="text-xs text-zinc-400">
-          把中文口译成{langMeta(lang).short}，巩固正确表达
+          把中文{modeName}成{langMeta(lang).short}，巩固正确表达
         </span>
       </div>
 
@@ -165,14 +221,14 @@ export default function InterpretingPractice({
           </p>
           <p className="mt-2 text-sm text-zinc-400">
             {doneReason === "empty"
-              ? "先去做口语练习，收集一些错题再来巩固"
-              : "请再去进行口语练习，积累新的错题吧"}
+              ? "先从口语或写作润色中收集一些错题再来巩固"
+              : "可以返回错题本，或切换另一种练习模式"}
           </p>
           <button
             onClick={onBack}
             className="mt-6 rounded-lg bg-orange-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-orange-700"
           >
-            去口语练习
+            返回错题本
           </button>
         </div>
       ) : (
@@ -180,7 +236,7 @@ export default function InterpretingPractice({
           {state && !result && (
             <div className="mt-8 rounded-2xl border border-zinc-100 bg-white p-8 text-center">
               <p className="text-xs font-semibold text-zinc-400">
-                请把下面这句话口译成{langMeta(lang).label}
+                请把下面这句话{modeName}成{langMeta(lang).label}
               </p>
               <p className="mt-4 text-2xl font-semibold text-zinc-900">
                 {state.prompt}
@@ -190,18 +246,20 @@ export default function InterpretingPractice({
               </p>
 
               <div className="mt-6 flex flex-col items-center gap-3">
-                <button
-                  onClick={toggleListening}
-                  disabled={loading}
-                  className={`rounded-full px-10 py-4 text-base font-semibold text-white transition disabled:opacity-50 ${
-                    listening ? "bg-red-600" : "bg-orange-600 hover:bg-orange-700"
-                  }`}
-                >
-                  {listening ? "停止并提交" : "语音回答"}
-                </button>
+                {isInterpreting && (
+                  <button
+                    onClick={toggleListening}
+                    disabled={loading}
+                    className={`rounded-full px-10 py-4 text-base font-semibold text-white transition disabled:opacity-50 ${
+                      listening ? "bg-red-600" : "bg-orange-600 hover:bg-orange-700"
+                    }`}
+                  >
+                    {listening ? "停止并提交" : "语音回答"}
+                  </button>
+                )}
 
                 <div className="flex w-full gap-2">
-                  <input
+                  <textarea
                     value={answer}
                     onChange={(e) => setAnswer(e.target.value)}
                     onKeyDown={(e) => {
@@ -210,8 +268,10 @@ export default function InterpretingPractice({
                         submit(answer);
                       }
                     }}
-                    placeholder={`或直接输入${langMeta(lang).short}…（Enter 提交）`}
-                    className="flex-1 rounded-lg border border-zinc-200 px-4 py-2.5 text-sm outline-none focus:border-orange-400"
+                    rows={isInterpreting ? 1 : 4}
+                    maxLength={4000}
+                    placeholder={`${isInterpreting ? "或直接输入" : "输入"}${langMeta(lang).short}译文…（Enter 提交，Shift + Enter 换行）`}
+                    className="flex-1 resize-y rounded-lg border border-zinc-200 px-4 py-2.5 text-sm leading-6 outline-none focus:border-orange-400"
                   />
                   <button
                     onClick={() => submit(answer)}
@@ -265,7 +325,7 @@ export default function InterpretingPractice({
               )}
 
               <button
-                onClick={next}
+                onClick={() => next()}
                 className="mt-6 rounded-lg bg-orange-600 px-6 py-3 text-sm font-semibold text-white hover:bg-orange-700"
               >
                 下一题

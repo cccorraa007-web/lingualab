@@ -32,6 +32,17 @@ export interface WritingPolishResult {
   assessment: WritingAssessment;
 }
 
+export type MistakePracticeMode = "interpret" | "translate";
+
+export interface MistakePracticeItem {
+  id: string;
+  error_type: string;
+  wrong: string;
+  correct: string;
+  example?: string | null;
+  note?: string | null;
+}
+
 interface RawWritingResult {
   polish?: Partial<WritingPolishItem>[];
   assessment?: {
@@ -143,5 +154,61 @@ export async function polishWriting(
       improvements: textList(rawAssessment.improvements),
       summary: text(rawAssessment.summary),
     },
+  };
+}
+
+export async function generateMistakePrompt(
+  mistake: MistakePracticeItem,
+  mode: MistakePracticeMode,
+  lang: TargetLang = "es",
+): Promise<string> {
+  const languageName = langMeta(lang).label;
+  const modeRequirement =
+    mode === "interpret"
+      ? "句子应自然、口语化、适合即时口译，控制在约 8 至 20 个汉字，不要使用复杂从句。"
+      : "句子应适合笔译，控制在约 25 至 60 个汉字，包含自然的从句或逻辑连接，语义具体，并能检验句式和选词准确性。";
+  const result = await chatJSON<{ prompt?: unknown }>([
+    {
+      role: "system",
+      content: `你是一名${languageName}教师。请生成一个中文翻译练习句。${modeRequirement}只输出 JSON。`,
+    },
+    {
+      role: "user",
+      content: `学习者需要巩固${languageName}表达「${mistake.correct}」，曾误用为「${mistake.wrong}」，错误类型是「${mistake.error_type}」。请生成一个翻译成${languageName}时自然需要用到正确表达的中文句子。不要在中文题目中泄露答案。输出 {"prompt":"中文句子"}。`,
+    },
+  ]);
+  return text(result.prompt);
+}
+
+export async function evaluateMistakePractice(
+  mistake: MistakePracticeItem,
+  prompt: string,
+  answer: string,
+  mode: MistakePracticeMode,
+  lang: TargetLang = "es",
+): Promise<{ correct: boolean; feedback: string }> {
+  const languageName = langMeta(lang).label;
+  const criteria =
+    mode === "interpret"
+      ? "以口语沟通为标准：重点检查是否正确使用目标表达、意思是否到位、口语是否自然；忽略不影响理解的标点和大小写差异。"
+      : "以笔译为标准：重点检查目标表达、句式选择、语法结构、词性、词义准确性和用词是否自然生动。若目标表达正确但存在其他明显句法或词义错误，也应判为未完全正确并具体指出。";
+  const result = await chatJSON<{ correct?: unknown; feedback?: unknown }>([
+    {
+      role: "system",
+      content: `你是一名严格但鼓励学习者的${languageName}教师，正在评价${mode === "interpret" ? "口译" : "笔译"}练习。${criteria}只输出 JSON。`,
+    },
+    {
+      role: "user",
+      content: `中文题目：${prompt}
+学习者答案：${answer}
+
+错题信息：正确表达是「${mistake.correct}」，常见误用是「${mistake.wrong}」，类型为「${mistake.error_type}」。
+
+请输出 {"correct":true或false,"feedback":"中文反馈"}。反馈应先说明目标表达是否使用正确；笔译模式还要简要评价句式和用词，错误时给出一版自然的参考译法。`,
+    },
+  ]);
+  return {
+    correct: result.correct === true,
+    feedback: text(result.feedback) || "暂时无法生成详细反馈，请再试一次。",
   };
 }
