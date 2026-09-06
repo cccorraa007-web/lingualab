@@ -20,16 +20,39 @@ on conflict (id) do update
       file_size_limit = excluded.file_size_limit,
       allowed_mime_types = excluded.allowed_mime_types;
 
--- 访问策略：仅登录用户可上传/读取本桶。
--- 与班级共享表一致，班级级隔离在应用层（API 按成员关系过滤）完成；
--- 建议上传路径统一为 assignment-files/{assignment_id}/{user_id}/...，
--- 后续可据此把策略收紧到「只能读写自己或本班的文件」。
+-- 路径固定为 {assignment_id}/{user_id}/{随机文件名}。
+-- 学生只能上传、读取和删除自己的附件；任课教师可读取所教班级的附件。
 drop policy if exists "assignment_files_upload" on storage.objects;
 create policy "assignment_files_upload"
   on storage.objects for insert to authenticated
-  with check (bucket_id = 'assignment-files');
+  with check (
+    bucket_id = 'assignment-files'
+    and (storage.foldername(name))[2] = auth.uid()::text
+  );
 
 drop policy if exists "assignment_files_read" on storage.objects;
 create policy "assignment_files_read"
   on storage.objects for select to authenticated
-  using (bucket_id = 'assignment-files');
+  using (
+    bucket_id = 'assignment-files'
+    and (
+      (storage.foldername(name))[2] = auth.uid()::text
+      or exists (
+        select 1
+        from public.classroom_assignments a
+        join public.classroom_members m on m.classroom_id = a.classroom_id
+        where a.id::text = (storage.foldername(name))[1]
+          and m.user_id = auth.uid()
+          and m.role = 'teacher'
+          and m.status = 'approved'
+      )
+    )
+  );
+
+drop policy if exists "assignment_files_delete_own" on storage.objects;
+create policy "assignment_files_delete_own"
+  on storage.objects for delete to authenticated
+  using (
+    bucket_id = 'assignment-files'
+    and (storage.foldername(name))[2] = auth.uid()::text
+  );

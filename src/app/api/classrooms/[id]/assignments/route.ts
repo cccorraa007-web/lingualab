@@ -3,6 +3,22 @@ import { getUserClient, unauthorized } from "@/lib/supabase/server-auth";
 import { canManageAssignments, getClassroomRole } from "./_auth";
 
 export const dynamic = "force-dynamic";
+const BUCKET = "assignment-files";
+
+async function addMediaUrls<T extends { media_paths?: string[] | null }>(
+  client: Parameters<typeof getClassroomRole>[0],
+  submissions: T[],
+) {
+  return Promise.all(submissions.map(async (submission) => {
+    const paths = submission.media_paths ?? [];
+    if (!paths.length) return { ...submission, media_urls: [] };
+    const { data } = await client.storage.from(BUCKET).createSignedUrls(paths, 3600);
+    return {
+      ...submission,
+      media_urls: (data ?? []).filter((item) => item.signedUrl).map((item) => ({ path: item.path, url: item.signedUrl })),
+    };
+  }));
+}
 
 export async function GET(
   request: Request,
@@ -49,7 +65,7 @@ export async function GET(
     return NextResponse.json({
       assignments,
       recipients: recipients ?? [],
-      submissions: submissions ?? [],
+      submissions: await addMediaUrls(auth.client, submissions ?? []),
       my_role: role,
       server_now: new Date().toISOString(),
     });
@@ -65,7 +81,7 @@ export async function GET(
   }
   return NextResponse.json({
     assignments,
-    submissions: submissions ?? [],
+    submissions: await addMediaUrls(auth.client, submissions ?? []),
     my_role: role,
     server_now: new Date().toISOString(),
   });

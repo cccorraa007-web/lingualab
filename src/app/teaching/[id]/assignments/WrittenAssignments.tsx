@@ -29,6 +29,9 @@ interface Submission {
   max_score: number;
   submitted_at: string;
   updated_at: string;
+  media_paths: string[];
+  media_urls: { path: string; url: string }[];
+  ocr_text: string | null;
 }
 
 export default function WrittenAssignments({ classroomId, role }: { classroomId: string; role: Role }) {
@@ -45,6 +48,7 @@ export default function WrittenAssignments({ classroomId, role }: { classroomId:
   const [endsAt, setEndsAt] = useState("");
   const [busy, setBusy] = useState("");
   const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [files, setFiles] = useState<Record<string, File[]>>({});
   const [reviewFeedback, setReviewFeedback] = useState<Record<string, string>>({});
   const [reviewScores, setReviewScores] = useState<Record<string, string>>({});
 
@@ -120,23 +124,46 @@ export default function WrittenAssignments({ classroomId, role }: { classroomId:
 
   async function submit(assignmentId: string) {
     const answer = drafts[assignmentId]?.trim();
-    if (!answer) return setError("请填写作业内容");
+    const attachments = files[assignmentId] ?? [];
+    if (!answer && attachments.length === 0) return setError("请填写作业内容或选择附件");
     setBusy(`submit:${assignmentId}`);
     setError("");
     try {
+      const form = new FormData();
+      form.set("content", answer ?? "");
+      attachments.forEach((file) => form.append("files", file));
       const response = await apiFetch(
         `/api/classrooms/${classroomId}/assignments/${assignmentId}/submit`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ content: answer }),
+          body: form,
         },
       );
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "提交失败");
+      setFiles((current) => ({ ...current, [assignmentId]: [] }));
       reload();
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "提交失败");
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function extractText(assignmentId: string, submissionId: string) {
+    setBusy(`ocr:${submissionId}`);
+    setError("");
+    try {
+      const response = await apiFetch(`/api/classrooms/${classroomId}/assignments/${assignmentId}/ocr`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ submission_id: submissionId }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "图片文字提取失败");
+      reload();
+    } catch (ocrError) {
+      setError(ocrError instanceof Error ? ocrError.message : "图片文字提取失败");
     } finally {
       setBusy("");
     }
@@ -174,7 +201,7 @@ export default function WrittenAssignments({ classroomId, role }: { classroomId:
       <div className="flex items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold text-zinc-900">笔头作业</h2>
-          <p className="mt-1 text-xs text-zinc-400">文字提交与人工批改已启用；多媒体和 OCR 待管理员完成存储配置。</p>
+          <p className="mt-1 text-xs text-zinc-400">支持文字、图片、音频、视频和 PDF；教师可提取图片文字并批改留档。</p>
         </div>
         {isStaff && (
           <button onClick={() => setShowPublish((visible) => !visible)} className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700">
@@ -226,7 +253,7 @@ export default function WrittenAssignments({ classroomId, role }: { classroomId:
                 </div>
 
                 {isStaff ? (
-                  <StaffPanel assignment={assignment} submissions={assignmentSubmissions} recipients={assignmentRecipients} missing={missing} busy={busy} feedback={reviewFeedback} scores={reviewScores} setFeedback={setReviewFeedback} setScores={setReviewScores} onReview={review} />
+                  <StaffPanel assignment={assignment} submissions={assignmentSubmissions} recipients={assignmentRecipients} missing={missing} busy={busy} feedback={reviewFeedback} scores={reviewScores} setFeedback={setReviewFeedback} setScores={setReviewScores} onReview={review} onExtractText={extractText} />
                 ) : (
                   <div className="mt-4 border-t border-zinc-100 pt-4">
                     {mySubmission && (
@@ -234,9 +261,12 @@ export default function WrittenAssignments({ classroomId, role }: { classroomId:
                         <p>首次提交：{new Date(mySubmission.submitted_at).toLocaleString("zh-CN")} · {new Date(mySubmission.submitted_at) > new Date(assignment.ends_at) ? "迟交" : "按时提交"}</p>
                         {mySubmission.score !== null && <p className="mt-1 font-semibold text-orange-700">评分：{mySubmission.score}/{mySubmission.max_score}</p>}
                         {mySubmission.feedback && <p className="mt-1 whitespace-pre-wrap">教师反馈：{mySubmission.feedback}</p>}
+                        {mySubmission.media_urls?.length > 0 && <div className="mt-2 flex flex-wrap gap-2">{mySubmission.media_urls.map((media, index) => <a key={media.path} href={media.url} target="_blank" rel="noreferrer" className="text-xs font-medium text-orange-700 hover:underline">附件 {index + 1}</a>)}</div>}
                       </div>
                     )}
                     <textarea value={drafts[assignment.id] ?? ""} onChange={(event) => setDrafts((current) => ({ ...current, [assignment.id]: event.target.value }))} maxLength={20000} rows={6} placeholder="在这里粘贴或输入作业内容" className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm leading-6 outline-none focus:border-orange-400" />
+                    <input type="file" multiple accept="image/png,image/jpeg,image/webp,image/gif,audio/mpeg,audio/wav,audio/webm,video/mp4,video/webm,application/pdf" onChange={(event) => setFiles((current) => ({ ...current, [assignment.id]: Array.from(event.target.files ?? []).slice(0, 5) }))} className="mt-2 block w-full text-sm text-zinc-500 file:mr-3 file:rounded-lg file:border-0 file:bg-zinc-100 file:px-3 file:py-2 file:text-sm file:font-semibold" />
+                    <p className="mt-1 text-xs text-zinc-400">最多 5 个附件，单个不超过 25MB；重新选择附件会替换原附件。</p>
                     <button onClick={() => submit(assignment.id)} disabled={busy === `submit:${assignment.id}`} className="mt-2 rounded-lg bg-orange-600 px-5 py-2 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-50">
                       {busy === `submit:${assignment.id}` ? "提交中…" : mySubmission ? "更新提交" : ended ? "迟交作业" : "提交作业"}
                     </button>
@@ -251,7 +281,7 @@ export default function WrittenAssignments({ classroomId, role }: { classroomId:
   );
 }
 
-function StaffPanel({ assignment, submissions, recipients, missing, busy, feedback, scores, setFeedback, setScores, onReview }: {
+function StaffPanel({ assignment, submissions, recipients, missing, busy, feedback, scores, setFeedback, setScores, onReview, onExtractText }: {
   assignment: Assignment;
   submissions: Submission[];
   recipients: Recipient[];
@@ -262,6 +292,7 @@ function StaffPanel({ assignment, submissions, recipients, missing, busy, feedba
   setFeedback: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   setScores: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   onReview: (assignmentId: string, submissionId: string) => Promise<void>;
+  onExtractText: (assignmentId: string, submissionId: string) => Promise<void>;
 }) {
   const emailFor = (userId: string) => recipients.find((item) => item.user_id === userId)?.email || userId;
   return (
@@ -277,6 +308,9 @@ function StaffPanel({ assignment, submissions, recipients, missing, busy, feedba
                 <span>{new Date(submission.submitted_at).toLocaleString("zh-CN")} · {new Date(submission.submitted_at) > new Date(assignment.ends_at) ? "迟交" : "按时"}</span>
               </div>
               <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-zinc-700">{submission.content}</p>
+              {submission.media_urls?.length > 0 && <div className="mt-3 flex flex-wrap gap-2">{submission.media_urls.map((media, index) => <a key={media.path} href={media.url} target="_blank" rel="noreferrer" className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs text-orange-700 hover:border-orange-300">查看附件 {index + 1}</a>)}</div>}
+              {submission.media_paths?.length > 0 && <button onClick={() => onExtractText(assignment.id, submission.id)} disabled={busy === `ocr:${submission.id}`} className="mt-3 rounded-lg border border-orange-200 bg-white px-3 py-2 text-xs font-semibold text-orange-700 disabled:opacity-50">{busy === `ocr:${submission.id}` ? "识别中…" : "提取图片文字"}</button>}
+              {submission.ocr_text && <div className="mt-3 rounded-lg border border-blue-100 bg-blue-50 p-3"><p className="text-xs font-semibold text-blue-700">图片识别文字</p><p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-zinc-700">{submission.ocr_text}</p></div>}
               {(submission.feedback || submission.score !== null) && <div className="mt-3 rounded-lg bg-white p-3 text-sm text-zinc-600"><p>当前评分：{submission.score ?? "未评分"}{submission.score !== null ? `/${submission.max_score}` : ""}</p>{submission.feedback && <p className="mt-1 whitespace-pre-wrap">反馈：{submission.feedback}</p>}</div>}
               <div className="mt-3 grid gap-2 sm:grid-cols-[100px_1fr_auto]">
                 <input type="number" min={0} max={100} value={scores[submission.id] ?? ""} onChange={(event) => setScores((current) => ({ ...current, [submission.id]: event.target.value }))} placeholder="分数" className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm" />
