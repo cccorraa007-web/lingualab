@@ -27,12 +27,16 @@ function systemPrompt(lang: TargetLang): string {
 function buildUserPrompt(text: string, lang: TargetLang): string {
   const name = langMeta(lang).label;
   const tagList = TOPICS.map((t) => `${t.slug}（${t.name_zh}）`).join("、");
+  const levelInstruction =
+    lang === "en"
+      ? "【cefr_level】估算文章难度，取值「简单」「进阶」「困难」三档。"
+      : "【cefr_level】估算文章难度，取值 A1/A2/B1/B2/C1/C2。";
   return `请分析下面的${name}文章，提取学习素材并输出 JSON。
 
 【tags】从以下标签中，选择最贴切的 1~3 个标签（tags 数组）。数组元素必须原样输出「括号前」的 slug（小写、连字符格式，例如 cambio-climatico），禁止输出${name}名称、中文名称或任何自创内容。可选的 slug 列表：
 ${tagList}
 
-【cefr_level】估算文章难度，取值 A1/A2/B1/B2/C1/C2。
+${levelInstruction}
 
 【items】提取语料条目，每条是一个独立卡片，字段：
 - category：取值 "keyword"（关键词）、"expression"（地道表达/固定搭配）、"prompt"（口语练习问题）
