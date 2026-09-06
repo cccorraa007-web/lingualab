@@ -11,7 +11,7 @@ export async function POST(request: Request) {
   if (!auth) return unauthorized();
   const supabase = auth.client;
 
-  let body: { type?: string };
+  let body: { type?: string; lang?: string };
   try {
     body = await request.json();
   } catch {
@@ -32,7 +32,8 @@ export async function POST(request: Request) {
     .join("\n");
 
   try {
-    const lang = detectLanguage(context);
+    const lang =
+      body.lang === "en" ? "en" : body.lang === "es" ? "es" : detectLanguage(context);
     const content = await generateExamQuestion(type, context, lang);
     return NextResponse.json({
       question: { content, zh: null, extra: {} },

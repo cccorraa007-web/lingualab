@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { topicName } from "@/lib/topics";
 import { apiFetch } from "@/lib/auth";
-import { detectLanguage, langMeta, type TargetLang } from "@/lib/language";
+import { langMeta, type TargetLang } from "@/lib/language";
 
 interface ChatMsg {
   role: "user" | "assistant";
@@ -32,13 +32,12 @@ interface PromptCard {
 
 let ttsAudio: HTMLAudioElement | null = null;
 
-async function speak(text: string) {
+async function speak(text: string, lang: TargetLang) {
   try {
     if (ttsAudio) {
       ttsAudio.pause();
       ttsAudio = null;
     }
-    const lang = detectLanguage(text);
     const res = await apiFetch("/api/speech/tts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -263,8 +262,7 @@ async function startStreamingRecorder(lang: TargetLang): Promise<StreamingRecord
   };
 }
 
-function FreePractice() {
-  const [lang, setLang] = useState<TargetLang>("es");
+function FreePractice({ lang }: { lang: TargetLang }) {
   const [tags, setTags] = useState<string[]>([]);
   const [topic, setTopic] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMsg[]>([]);
@@ -303,13 +301,12 @@ function FreePractice() {
       const res = await apiFetch("/api/practice/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic: t, history: [] }),
+        body: JSON.stringify({ topic: t, history: [], lang }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "失败");
-      setLang(detectLanguage(data.reply));
       setMessages([{ role: "assistant", content: data.reply }]);
-      speak(data.reply);
+      speak(data.reply, lang);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -328,13 +325,12 @@ function FreePractice() {
       const res = await apiFetch("/api/practice/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic, history: next }),
+        body: JSON.stringify({ topic, history: next, lang }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "失败");
-      setLang(detectLanguage(data.reply));
       setMessages([...next, { role: "assistant", content: data.reply }]);
-      speak(data.reply);
+      speak(data.reply, lang);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -349,7 +345,7 @@ function FreePractice() {
       const res = await apiFetch("/api/practice/polish", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ history: messages }),
+        body: JSON.stringify({ history: messages, lang }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "失败");
@@ -662,7 +658,7 @@ function FreePractice() {
               点下方「语音回答」开始说，说完再点一次停止
             </p>
             <button
-              onClick={() => lastAssistant && speak(lastAssistant.content)}
+              onClick={() => lastAssistant && speak(lastAssistant.content, lang)}
               className="mt-3 text-xs text-blue-600 hover:underline"
             >
               重听问题
@@ -737,8 +733,7 @@ const EXAM_TYPES = [
   { key: "t5", label: "观点表达", seconds: 180 },
 ];
 
-function ExamPractice() {
-  const [lang, setLang] = useState<TargetLang>("es");
+function ExamPractice({ lang }: { lang: TargetLang }) {
   const [question, setQuestion] = useState<PromptCard | null>(null);
   const [phase, setPhase] = useState<"idle" | "prepare" | "answer" | "done">(
     "idle",
@@ -787,12 +782,11 @@ function ExamPractice() {
       const res = await apiFetch("/api/practice/exam-question", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type }),
+        body: JSON.stringify({ type, lang }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "抽题失败");
       setQuestion(data.question);
-      setLang(detectLanguage(data.question?.content ?? ""));
       setPrepareSeconds(120);
       setAnswerSeconds(seconds);
       setPhase("prepare");
@@ -844,7 +838,7 @@ function ExamPractice() {
       const polishRes = await apiFetch("/api/practice/polish", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ history: [{ role: "user", content: text }] }),
+        body: JSON.stringify({ history: [{ role: "user", content: text }], lang }),
       });
       const polishData = await polishRes.json();
       if (!polishRes.ok) throw new Error(polishData.error || "润色失败");
@@ -1032,6 +1026,7 @@ function ExamPractice() {
 
 export default function PracticePage() {
   const [mode, setMode] = useState<"free" | "exam">("free");
+  const [lang, setLang] = useState<TargetLang>("es");
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
@@ -1039,31 +1034,56 @@ export default function PracticePage() {
         口语练习
       </h1>
 
-      <div className="mt-4 flex gap-2 border-b border-zinc-100 pb-3">
-        <button
-          onClick={() => setMode("free")}
-          className={`rounded-full px-5 py-2 text-sm font-medium transition ${
-            mode === "free"
-              ? "bg-orange-600 text-white"
-              : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
-          }`}
-        >
-          自由练习
-        </button>
-        <button
-          onClick={() => setMode("exam")}
-          className={`rounded-full px-5 py-2 text-sm font-medium transition ${
-            mode === "exam"
-              ? "bg-orange-600 text-white"
-              : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
-          }`}
-        >
-          考题模式
-        </button>
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <div className="flex gap-2 border-b border-zinc-100 pb-3">
+          <button
+            onClick={() => setMode("free")}
+            className={`rounded-full px-5 py-2 text-sm font-medium transition ${
+              mode === "free"
+                ? "bg-orange-600 text-white"
+                : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
+            }`}
+          >
+            自由练习
+          </button>
+          <button
+            onClick={() => setMode("exam")}
+            className={`rounded-full px-5 py-2 text-sm font-medium transition ${
+              mode === "exam"
+                ? "bg-orange-600 text-white"
+                : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
+            }`}
+          >
+            考题模式
+          </button>
+        </div>
+
+        <div className="flex items-center gap-2 border-b border-zinc-100 pb-3">
+          <span className="text-xs font-medium text-zinc-500">练习语言</span>
+          <div className="flex gap-1.5">
+            {(["es", "en"] as const).map((k) => (
+              <button
+                key={k}
+                onClick={() => setLang(k)}
+                className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
+                  lang === k
+                    ? "bg-blue-600 text-white"
+                    : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
+                }`}
+              >
+                {langMeta(k).label}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       <div className="mt-6">
-        {mode === "free" ? <FreePractice /> : <ExamPractice />}
+        {mode === "free" ? (
+          <FreePractice lang={lang} />
+        ) : (
+          <ExamPractice lang={lang} />
+        )}
       </div>
     </div>
   );

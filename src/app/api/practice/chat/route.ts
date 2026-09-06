@@ -45,7 +45,11 @@ export async function POST(request: Request) {
   const auth = await getUserClient(request);
   if (!auth) return unauthorized();
 
-  let body: { topic?: string; history?: { role: string; content: string }[] };
+  let body: {
+    topic?: string;
+    lang?: string;
+    history?: { role: string; content: string }[];
+  };
   try {
     body = await request.json();
   } catch {
@@ -63,7 +67,8 @@ export async function POST(request: Request) {
   }));
 
   const context = await getTopicContext(auth.client, auth.user.id, topic);
-  const lang = detectLanguage(context);
+  const lang =
+    body.lang === "en" ? "en" : body.lang === "es" ? "es" : detectLanguage(context);
   const reply = await chatReply(context, messages, lang);
   return NextResponse.json({ reply, lang });
 }
