@@ -24,9 +24,13 @@ export default function ClassroomMembersPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [pending, setPending] = useState<Member[]>([]);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
   const [reloadKey, setReloadKey] = useState(0);
 
-  const load = useCallback(() => setReloadKey((k) => k + 1), []);
+  const load = useCallback(() => {
+    setLoading(true);
+    setReloadKey((k) => k + 1);
+  }, []);
 
   useEffect(() => {
     apiFetch(`/api/classrooms/${params.id}`)
@@ -40,7 +44,8 @@ export default function ClassroomMembersPage() {
         setMembers(d.members ?? []);
         setPending(d.pending ?? []);
       })
-      .catch((e) => setError(e instanceof Error ? e.message : String(e)));
+      .catch((e) => setError(e instanceof Error ? e.message : String(e)))
+      .finally(() => setLoading(false));
   }, [params.id, reloadKey]);
 
   async function approve(memberId: string) {
@@ -114,12 +119,16 @@ export default function ClassroomMembersPage() {
       <section className="mt-8">
         <h2 className="text-lg font-semibold text-zinc-900">成员</h2>
         <div className="mt-3 space-y-2">
-          {members.length === 0 && (
+          {loading ? (
+            <div className="rounded-2xl border border-dashed border-zinc-200 p-10 text-center text-zinc-400">
+              加载中…
+            </div>
+          ) : members.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-zinc-200 p-10 text-center text-zinc-400">
               暂无成员
             </div>
-          )}
-          {members.map((m) => (
+          ) : (
+            members.map((m) => (
             <div
               key={m.id}
               className="flex items-center justify-between rounded-xl border border-zinc-100 bg-white p-4"
@@ -155,7 +164,8 @@ export default function ClassroomMembersPage() {
                 </div>
               )}
             </div>
-          ))}
+            ))
+          )}
         </div>
       </section>
     </div>

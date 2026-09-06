@@ -40,6 +40,7 @@ export default function ClassroomAssignmentsPage() {
   const [readings, setReadings] = useState<Reading[]>([]);
   const [materials, setMaterials] = useState<Material[]>([]);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
   const [reloadKey, setReloadKey] = useState(0);
 
   const [showPublish, setShowPublish] = useState(false);
@@ -50,7 +51,10 @@ export default function ClassroomAssignmentsPage() {
   const [pEndTime, setPEndTime] = useState(nowTime);
   const [publishing, setPublishing] = useState(false);
 
-  const load = useCallback(() => setReloadKey((k) => k + 1), []);
+  const load = useCallback(() => {
+    setLoading(true);
+    setReloadKey((k) => k + 1);
+  }, []);
 
   useEffect(() => {
     apiFetch(`/api/classrooms/${params.id}`)
@@ -65,7 +69,8 @@ export default function ClassroomAssignmentsPage() {
       .then((d) => {
         if (!d.error) setReadings(d.readings ?? []);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setLoading(false));
 
     apiFetch("/api/materials")
       .then((r) => r.json())
@@ -231,35 +236,40 @@ export default function ClassroomAssignmentsPage() {
         )}
 
         <div className="mt-3 space-y-2">
-          {readings.length === 0 && (
+          {loading ? (
+            <div className="rounded-2xl border border-dashed border-zinc-200 p-8 text-center text-zinc-400">
+              加载中…
+            </div>
+          ) : readings.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-zinc-200 p-8 text-center text-zinc-400">
               还没有必读文章
             </div>
-          )}
-          {readings.map((r) => {
-            const s = readingStatus(r);
-            return (
-              <Link
-                key={r.id}
-                href={`/teaching/${params.id}/readings/${r.id}`}
-                className="flex items-center justify-between rounded-xl border border-zinc-100 bg-white p-4 transition hover:shadow-md"
-              >
-                <div className="min-w-0">
-                  <p className="font-medium text-zinc-900">{r.title}</p>
-                  <p className="mt-1 text-xs text-zinc-400">
-                    {r.ends_at
-                      ? `截止 ${new Date(r.ends_at).toLocaleString("zh-CN")}`
-                      : "长期有效"}
-                  </p>
-                </div>
-                <span
-                  className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${s.cls}`}
+          ) : (
+            readings.map((r) => {
+              const s = readingStatus(r);
+              return (
+                <Link
+                  key={r.id}
+                  href={`/teaching/${params.id}/readings/${r.id}`}
+                  className="flex items-center justify-between rounded-xl border border-zinc-100 bg-white p-4 transition hover:shadow-md"
                 >
-                  {s.text}
-                </span>
-              </Link>
-            );
-          })}
+                  <div className="min-w-0">
+                    <p className="font-medium text-zinc-900">{r.title}</p>
+                    <p className="mt-1 text-xs text-zinc-400">
+                      {r.ends_at
+                        ? `截止 ${new Date(r.ends_at).toLocaleString("zh-CN")}`
+                        : "长期有效"}
+                    </p>
+                  </div>
+                  <span
+                    className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${s.cls}`}
+                  >
+                    {s.text}
+                  </span>
+                </Link>
+              );
+            })
+          )}
         </div>
       </section>
 

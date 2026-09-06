@@ -166,9 +166,11 @@ assignment_submissions (
 - 新的 `src/app/api/polish/route.ts`
 - `src/app/mistakes/page.tsx`、`src/components/InterpretingPractice.tsx`（口译/笔译升级）
 - `src/app/api/mistakes/*`（如需扩展）
-- 教学作业：`src/app/teaching/[id]/assignments/**`、`src/app/api/classrooms/[id]/assignments/**`
+- 教学作业：`src/app/teaching/[id]/assignments/page.tsx`（**已有**，往里加「笔头作业」区块）+ 新的 `src/app/api/classrooms/[id]/assignments/**`
 - 新的 AI 函数建议放**新文件** `src/lib/ai/writing.ts`（别改 `practice.ts`，避免冲突）
 - 新的 `db/migrate_assignments.sql`
+
+> 注意：班级现在是「仪表盘 + 三个子页」结构（见文末速查），`/teaching/[id]/assignments` 里已有「必读文章」，你是在同一个页面**新增**「笔头作业」区块，不是新建页面。
 
 **负责人负责（你别碰）**：`src/app/practice/**`、教学口语训练/课外阅读追踪/排行相关文件。
 
@@ -189,6 +191,48 @@ git checkout 你的分支 && git merge main      # 合并前先同步
 - 分支**短**（几天内合一次），别拖成几周。
 - 只提交代码，**不要提交 `.env.local`、密钥、docx/pdf 等**。
 - 遇到需要改共享文件的，先在群里和负责人确认。
+
+---
+
+## 九、项目速查（数据模型 & 关键文件）
+
+### 9.1 现有数据库表
+
+| 表 | 作用 | 关键字段 |
+|----|------|---------|
+| `materials` | 自学语料库原始材料 | `id, user_id, title, raw_text, tags, cefr_level, translation` |
+| `corpus_cards` | 语料卡片 | `id, user_id, material_id, category(keyword/expression/prompt), content, zh, extra, status` |
+| `annotations` | 语料原文高亮/批注 | `id, user_id, material_id, text, color, note` |
+| `mistake_book` | 错题本 | `id, user_id, error_type, wrong, correct, example, note, wrong_count, correct_streak, last_reviewed_at` |
+| `classrooms` | 班级 | `id, name, invite_code, created_by` |
+| `classroom_members` | 班级成员 | `id, classroom_id, user_id, email, role(teacher/leader/student), status(pending/approved)` |
+| `classroom_readings` | 班级必读文章 | `id, classroom_id, title, raw_text, starts_at, ends_at, created_by` |
+| `reading_annotations` | 必读文章勾画批注 | `id, reading_id, user_id, text, color, note` |
+
+> 用户数据表用 `user_id` 隔离（RLS + API 层过滤）；班级相关表是共享表，隔离在应用层（按成员关系过滤）。
+
+### 9.2 关键文件
+
+| 文件 | 作用 |
+|------|------|
+| `src/lib/auth.ts` | `apiFetch`、`useAuth`、`useTargetLang`、`signIn/signUp` |
+| `src/lib/supabase/server-auth.ts` | `getUserClient(request)` → `{client, user:{id, email, lang}}`、`unauthorized()` |
+| `src/lib/ai/deepseek.ts` | `chatJSON`（结构化 JSON）、`chatText`（纯文本） |
+| `src/lib/ai/practice.ts` | 口语：`chatReply`、`polishAnswers`、`generateInterpretingPrompt`、`evaluateInterpreting` |
+| `src/lib/language.ts` | `TargetLang`、`langMeta(lang).label/short/brand`、`PRODUCT_NAME` |
+| `src/app/practice/page.tsx` | 口语练习（自由练习 + 考题模式），含「对话→润色→错题本」闭环 |
+| `src/components/InterpretingPractice.tsx` | 错题本口译练习组件（你要升级成口译/笔译） |
+
+### 9.3 教学模式页面结构（负责人已搭好）
+
+```
+/teaching                        # 教学模式首页：我的班级 + 创建/加入班级
+/teaching/[id]                   # 班级仪表盘：三张入口卡片（班级成员 / 发布作业 / 口语练习）
+/teaching/[id]/members           # 班级成员（审批、班委/教师）
+/teaching/[id]/assignments       # 发布作业（必读文章已实现 + 笔头作业占位，你在这里加笔头作业）
+/teaching/[id]/speaking          # 口语练习（占位，负责人后续做）
+/teaching/[id]/readings/[rid]    # 必读文章阅读页（勾画批注）
+```
 
 ---
 
