@@ -30,6 +30,16 @@ interface PromptCard {
   };
 }
 
+interface Session {
+  id: string;
+  lang: string;
+  topic: string;
+  rounds: number;
+  transcript: { role: string; content: string }[];
+  polish: PolishItem[];
+  created_at: string;
+}
+
 let ttsAudio: HTMLAudioElement | null = null;
 
 async function speak(text: string, lang: TargetLang) {
@@ -262,7 +272,13 @@ async function startStreamingRecorder(lang: TargetLang): Promise<StreamingRecord
   };
 }
 
-function FreePractice({ lang }: { lang: TargetLang }) {
+function FreePractice({
+  lang,
+  onSessionSaved,
+}: {
+  lang: TargetLang;
+  onSessionSaved?: () => void;
+}) {
   const [tags, setTags] = useState<string[]>([]);
   const [topic, setTopic] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMsg[]>([]);
@@ -349,9 +365,26 @@ function FreePractice({ lang }: { lang: TargetLang }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "失败");
-      setPolish(data.polish ?? []);
+      const polishItems = data.polish ?? [];
+      setPolish(polishItems);
       setSelectedPolish(new Set());
       setMistakeSaved(false);
+      try {
+        await apiFetch("/api/practice/sessions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            lang,
+            topic,
+            rounds: Math.ceil(messages.length / 2),
+            transcript: messages,
+            polish: polishItems,
+          }),
+        });
+        onSessionSaved?.();
+      } catch {
+        // 保存记录失败不阻断总结展示
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -394,8 +427,12 @@ function FreePractice({ lang }: { lang: TargetLang }) {
         correct: p.correct,
         example: p.example || null,
         note: p.reason || null,
-      }));
-    if (items.length === 0) return;
+      }))
+      .filter((it) => it.wrong && it.correct);
+    if (items.length === 0) {
+      setError("所选条目没有明确的错误点（错误→正确），无法加入错题本");
+      return;
+    }
     setSavingMistakes(true);
     setError("");
     try {
@@ -584,7 +621,8 @@ function FreePractice({ lang }: { lang: TargetLang }) {
                         type="checkbox"
                         checked={selectedPolish.has(i)}
                         onChange={() => toggleSelect(i)}
-                        className="mt-1 h-4 w-4 accent-orange-600"
+                        disabled={!p.wrong || !p.correct}
+                        className="mt-1 h-4 w-4 accent-orange-600 disabled:opacity-40"
                       />
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
@@ -599,7 +637,13 @@ function FreePractice({ lang }: { lang: TargetLang }) {
                         </div>
                         <p className="mt-2 text-sm text-zinc-500 line-through">{p.original}</p>
                         <p className="mt-1 text-sm font-medium text-emerald-700">{p.revised}</p>
-                        {p.reason && <p className="mt-1 text-xs text-zinc-400">{p.reason}</p>}
+                        {!p.wrong || !p.correct ? (
+                          <p className="mt-1 text-xs text-zinc-400">
+                            仅扩写优化、无明确错误，无法加入错题本
+                          </p>
+                        ) : (
+                          p.reason && <p className="mt-1 text-xs text-zinc-400">{p.reason}</p>
+                        )}
                         {p.example && (
                           <div className="mt-2 rounded-lg bg-blue-50 px-3 py-2">
                             <span className="text-xs font-semibold text-blue-500">参考回答</span>
@@ -1027,6 +1071,17 @@ function ExamPractice({ lang }: { lang: TargetLang }) {
 export default function PracticePage() {
   const [mode, setMode] = useState<"free" | "exam">("free");
   const [lang, setLang] = useState<TargetLang>("es");
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [sessionsReload, setSessionsReload] = useState(0);
+
+  useEffect(() => {
+    apiFetch("/api/practice/sessions")
+      .then((r) => r.json())
+      .then((d) => setSessions(d.sessions ?? []))
+      .catch(() => {});
+  }, [sessionsReload]);
+
+  const refreshSessions = () => setSessionsReload((k) => k + 1);
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
@@ -1080,11 +1135,97 @@ export default function PracticePage() {
 
       <div className="mt-6">
         {mode === "free" ? (
-          <FreePractice lang={lang} />
+          <FreePractice lang={lang} onSessionSaved={refreshSessions} />
         ) : (
           <ExamPractice lang={lang} />
         )}
       </div>
+
+      <PracticeHistory sessions={sessions} />
     </div>
+  );
+}
+
+function PracticeHistory({ sessions }: { sessions: Session[] }) {
+  const [openId, setOpenId] = useState<string | null>(null);
+
+  if (sessions.length === 0) return null;
+
+  return (
+    <section className="mt-10">
+      <h2 className="text-lg font-bold tracking-tight text-zinc-900">
+        练习记录
+      </h2>
+      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {sessions.map((s) => {
+          const open = openId === s.id;
+          return (
+            <div
+              key={s.id}
+              className="rounded-2xl border border-zinc-100 bg-white p-4 shadow-sm"
+            >
+              <button
+                onClick={() => setOpenId(open ? null : s.id)}
+                className="w-full text-left"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-700">
+                    {topicName(s.topic)}
+                  </span>
+                  <span className="text-xs text-zinc-400">
+                    {langMeta((s.lang === "en" ? "en" : "es") as TargetLang).short}
+                  </span>
+                </div>
+                <p className="mt-2 text-xs text-zinc-400">
+                  {new Date(s.created_at).toLocaleString("zh-CN")}
+                </p>
+                <p className="mt-1 text-xs text-zinc-500">
+                  {s.rounds} 轮 · {s.polish.length} 条润色建议
+                </p>
+              </button>
+
+              {open && (
+                <div className="mt-3 space-y-3 border-t border-zinc-100 pt-3">
+                  {s.transcript.length > 0 && (
+                    <div className="space-y-1.5">
+                      <p className="text-xs font-semibold text-zinc-500">对话</p>
+                      {s.transcript.map((m, i) => (
+                        <p key={i} className="text-xs text-zinc-600">
+                          <span className="font-medium text-zinc-400">
+                            {m.role === "assistant" ? "考官：" : "我："}
+                          </span>
+                          {m.content}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                  {s.polish.length > 0 && (
+                    <div className="space-y-1.5">
+                      <p className="text-xs font-semibold text-zinc-500">
+                        润色建议
+                      </p>
+                      {s.polish.map((p, i) => (
+                        <div key={i} className="text-xs text-zinc-600">
+                          <span className="text-red-500 line-through">
+                            {p.wrong}
+                          </span>
+                          <span className="mx-1 text-zinc-400">→</span>
+                          <span className="text-emerald-600">{p.correct}</span>
+                          {p.reason && (
+                            <span className="ml-1 text-zinc-400">
+                              （{p.reason}）
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }
