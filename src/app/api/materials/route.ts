@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getUserClient, unauthorized } from "@/lib/supabase/server-auth";
 import { processCorpus } from "@/lib/ai/pipeline";
-import { detectLanguage } from "@/lib/language";
+import { detectSupportedLanguage } from "@/lib/language";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -26,6 +26,14 @@ export async function POST(request: Request) {
     );
   }
 
+  const lang = detectSupportedLanguage(text);
+  if (lang === "other") {
+    return NextResponse.json(
+      { error: "目前仅支持英语和西班牙语，其他语种仍在开发中" },
+      { status: 400 },
+    );
+  }
+
   const { data: material, error: mErr } = await supabase
     .from("materials")
     .insert({
@@ -34,7 +42,7 @@ export async function POST(request: Request) {
       title: title?.trim() || null,
       raw_text: text.trim(),
       reading_id: reading_id || null,
-      lang: detectLanguage(text),
+      lang,
     })
     .select()
     .single();
@@ -46,7 +54,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await processCorpus(text.trim(), detectLanguage(text));
+    const result = await processCorpus(text.trim(), lang);
 
     await supabase
       .from("materials")
@@ -105,13 +113,17 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const q = searchParams.get("q");
   const tag = searchParams.get("tag");
+  const lang = searchParams.get("lang");
 
   let query = supabase
     .from("materials")
-    .select("id, title, type, tags, cefr_level, created_at")
+    .select("id, title, type, tags, cefr_level, lang, created_at")
     .eq("user_id", auth.user.id)
     .order("created_at", { ascending: false });
 
+  if (lang === "es" || lang === "en") {
+    query = query.eq("lang", lang);
+  }
   if (tag) {
     query = query.contains("tags", [tag]);
   }

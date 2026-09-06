@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getUserClient, unauthorized } from "@/lib/supabase/server-auth";
-import { detectLanguage } from "@/lib/language";
+import { detectSupportedLanguage } from "@/lib/language";
 
 export const dynamic = "force-dynamic";
 
@@ -124,6 +124,14 @@ export async function POST(
     return NextResponse.json({ error: "请设置截止时间" }, { status: 400 });
   }
 
+  const lang = detectSupportedLanguage(text);
+  if (lang === "other") {
+    return NextResponse.json(
+      { error: "目前仅支持英语和西班牙语，其他语种仍在开发中" },
+      { status: 400 },
+    );
+  }
+
   const { data: reading, error } = await supabase
     .from("classroom_readings")
     .insert({
@@ -143,7 +151,7 @@ export async function POST(
 
   await supabase
     .from("classrooms")
-    .update({ lang: detectLanguage(text) })
+    .update({ lang })
     .eq("id", id);
 
   return NextResponse.json({ reading });

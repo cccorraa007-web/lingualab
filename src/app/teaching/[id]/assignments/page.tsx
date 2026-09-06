@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { apiFetch } from "@/lib/auth";
+import { langMeta } from "@/lib/language";
 
 interface Reading {
   id: string;
@@ -40,6 +41,7 @@ function nowTime(): string {
 export default function ClassroomAssignmentsPage() {
   const params = useParams<{ id: string }>();
   const [myRole, setMyRole] = useState<"teacher" | "student">("student");
+  const [classroomLang, setClassroomLang] = useState<string>("");
   const [readings, setReadings] = useState<Reading[]>([]);
   const [materials, setMaterials] = useState<Material[]>([]);
   const [error, setError] = useState("");
@@ -63,7 +65,10 @@ export default function ClassroomAssignmentsPage() {
     apiFetch(`/api/classrooms/${params.id}`)
       .then((r) => r.json())
       .then((d) => {
-        if (!d.error) setMyRole(d.my_role);
+        if (!d.error) {
+          setMyRole(d.my_role);
+          setClassroomLang(d.classroom?.lang ?? "");
+        }
       })
       .catch(() => {});
 
@@ -157,7 +162,14 @@ export default function ClassroomAssignmentsPage() {
       {/* 必读文章 */}
       <section className="mt-8">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-zinc-900">必读文章</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-semibold text-zinc-900">必读文章</h2>
+            {(classroomLang === "es" || classroomLang === "en") && (
+              <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+                {langMeta(classroomLang as "es" | "en").label}
+              </span>
+            )}
+          </div>
           {myRole === "teacher" && (
             <button
               onClick={() => setShowPublish(!showPublish)}

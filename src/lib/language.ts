@@ -65,3 +65,44 @@ export function detectLanguage(text: string): TargetLang {
   es += accentCount * 2;
   return en > es ? "en" : "es";
 }
+
+const NON_LATIN_RE = /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uac00-\ud7af\u0400-\u04ff\u0600-\u06ff\u0590-\u05ff\u0900-\u097f]/g;
+const OTHER_ACCENTS = /[àèìòùâêîôûçäëïöãõåøæœ]/i;
+
+function countMatches(text: string, re: RegExp): number {
+  return (text.match(re) ?? []).length;
+}
+
+export type DetectedLang = TargetLang | "other";
+
+export function detectSupportedLanguage(text: string): DetectedLang {
+  const sample = (text || "").slice(0, 20000);
+
+  const nonLatin = countMatches(sample, NON_LATIN_RE);
+  const latin = countMatches(sample, /[a-zA-Z]/g);
+  const total = latin + nonLatin;
+  if (total === 0) return "other";
+  if (nonLatin > 0 && nonLatin >= latin * 0.3) return "other";
+
+  const words = sample.toLowerCase().match(/[a-záéíóúüñ]+/g) ?? [];
+  const otherAccents = countMatches(sample, OTHER_ACCENTS);
+  if (otherAccents >= 3 || (words.length >= 20 && otherAccents >= words.length * 0.02)) {
+    return "other";
+  }
+
+  let es = 0;
+  let en = 0;
+  for (const w of words) {
+    if (ES_WORDS.has(w)) es++;
+    if (EN_WORDS.has(w)) en++;
+  }
+  const accents = countMatches(sample, ES_ACCENTS);
+  es += accents * 2;
+
+  const signal = es + en + accents;
+  if (words.length >= 20 && signal < words.length * 0.03) {
+    return "other";
+  }
+
+  return en > es ? "en" : "es";
+}

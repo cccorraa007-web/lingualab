@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { apiFetch } from "@/lib/auth";
+import { langMeta } from "@/lib/language";
 
 const TEACHER_CARDS = [
   {
@@ -52,6 +53,7 @@ export default function ClassroomDashboardPage() {
   const [classroom, setClassroom] = useState<{
     name: string;
     invite_code: string;
+    lang?: string;
   } | null>(null);
   const [myRole, setMyRole] = useState("student");
   const [pendingCount, setPendingCount] = useState(0);
@@ -110,6 +112,11 @@ export default function ClassroomDashboardPage() {
         <h1 className="text-3xl font-bold tracking-tight text-zinc-900">
           {classroom?.name ?? "班级"}
         </h1>
+        {(classroom?.lang === "es" || classroom?.lang === "en") && (
+          <span className="rounded-lg bg-blue-100 px-3 py-1 text-sm font-medium text-blue-700">
+            {langMeta(classroom.lang).label}
+          </span>
+        )}
         {isTeacher && classroom && (
           <span className="rounded-lg bg-orange-50 px-3 py-1 text-sm font-medium text-orange-700">
             邀请码：
