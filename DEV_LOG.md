@@ -137,7 +137,19 @@ LinguaLab 的核心价值主张：**把用户读过的材料，自动转化成�
 - 「加入我的资料库」复用自学模式 `/api/materials`（AI 提取 → 生成草稿卡片 → 跳转 `corpus/review` 勾选）。
 - 必读文章阅读页**不提供全文翻译**（与自学模式区分），但保留高亮与句子批注。
 
-### 4.7 规划中的教学功能
+### 4.7 通知系统与防重复加入资料库（已实现）
+
+**设计**：学生提交必读文章作答后，教师收到「某学生提交了《某文章》的作答」通知；教师批改后，学生收到「老师批改了你的《某文章》作答」通知。同时，学生把必读文章加入资料库后，阅读页显示「已加入资料库」，避免重复加入。
+
+**技术方法**：
+- 数据表 `notifications`（`user_id` + `type`(`submission`/`feedback`) + `classroom_id` + `reading_id` + `title` + `read`），按用户隔离。
+- `src/lib/notifications.ts` 提供 `notifyTeachers`（查班级教师批量写入）与 `notifyStudent`（写给学生）。
+- 通知触发点：学生作答路由（`answer/route.ts`）→ `notifyTeachers`；教师批改路由（`feedback/route.ts`）→ `notifyStudent`。
+- 通知 API：`GET /api/notifications`（列表 + 未读数）、`POST /api/notifications`（全部已读）、`POST /api/notifications/[id]/read`（单条已读）。
+- 前端：`Navbar` 增加铃铛 + 未读红点；`/notifications` 通知列表页，点击跳转到对应阅读页并标记已读。
+- 防重复：`materials` 加 `reading_id` 列标记来源；阅读详情接口返回 `added_to_corpus`，前端据此把「加入我的资料库」按钮换成「已加入资料库」。
+
+### 4.8 规划中的教学功能
 
 - **笔头作业**：教师发布作业（题目 + 截止时间），学生提交（文字/图片/音频/视频），教师查看、图片提取文字、写反馈，记录未交名单 + 评分留档。
 - 学生档案（阅读时长、生词、答题情况、易错点），下次出题参考档案。

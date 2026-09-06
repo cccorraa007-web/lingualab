@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getUserClient, unauthorized } from "@/lib/supabase/server-auth";
+import { notifyTeachers } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +30,7 @@ export async function POST(
   if (!auth) return unauthorized();
   const supabase = auth.client;
 
-  const { id, questionId } = await params;
+  const { id, readingId, questionId } = await params;
   if (!(await isMember(supabase, auth.user.id, id))) {
     return NextResponse.json({ error: "你不是该班级成员" }, { status: 403 });
   }
@@ -63,6 +64,19 @@ export async function POST(
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  const { data: reading } = await supabase
+    .from("classroom_readings")
+    .select("title")
+    .eq("id", readingId)
+    .single();
+  const name = auth.user.email ?? "学生";
+  await notifyTeachers(
+    supabase,
+    id,
+    readingId,
+    `${name} 提交了《${reading?.title ?? "作业"}》的作答，快去批改吧`,
+  );
 
   return NextResponse.json({ answer: data });
 }

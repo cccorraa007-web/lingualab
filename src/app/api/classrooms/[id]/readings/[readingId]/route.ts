@@ -53,6 +53,14 @@ export async function GET(
     return NextResponse.json({ error: aErr.message }, { status: 500 });
   }
 
+  const { data: existingMaterial } = await supabase
+    .from("materials")
+    .select("id")
+    .eq("reading_id", readingId)
+    .eq("user_id", auth.user.id)
+    .maybeSingle();
+  const addedToCorpus = Boolean(existingMaterial);
+
   const { data: questions, error: qErr } = await supabase
     .from("reading_questions")
     .select("*")
@@ -84,6 +92,7 @@ export async function GET(
     annotations: annotations ?? [],
     questions: questions ?? [],
     answers,
+    added_to_corpus: addedToCorpus,
     my_role: role,
   });
 }

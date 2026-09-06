@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getUserClient, unauthorized } from "@/lib/supabase/server-auth";
+import { notifyStudent } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +35,7 @@ export async function POST(
   if (!auth) return unauthorized();
   const supabase = auth.client;
 
-  const { id, answerId } = await params;
+  const { id, readingId, answerId } = await params;
   const role = await myRole(supabase, auth.user.id, id);
   if (role !== "teacher") {
     return NextResponse.json({ error: "只有教师能批改" }, { status: 403 });
@@ -64,6 +65,21 @@ export async function POST(
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  const { data: reading } = await supabase
+    .from("classroom_readings")
+    .select("title")
+    .eq("id", readingId)
+    .single();
+  if (data?.user_id) {
+    await notifyStudent(
+      supabase,
+      data.user_id,
+      id,
+      readingId,
+      `老师批改了你的《${reading?.title ?? "作业"}》作答，快去看看评价吧`,
+    );
   }
 
   return NextResponse.json({ answer: data });

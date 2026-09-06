@@ -130,6 +130,7 @@ export default function ReadingPage() {
   const [answerInputs, setAnswerInputs] = useState<Record<string, string>>({});
   const [feedbackInputs, setFeedbackInputs] = useState<Record<string, string>>({});
   const [addingToCorpus, setAddingToCorpus] = useState(false);
+  const [addedToCorpus, setAddedToCorpus] = useState(false);
   const [error, setError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -146,6 +147,7 @@ export default function ReadingPage() {
         setQuestions(d.questions ?? []);
         setAnswers(d.answers ?? []);
         setMyRole(d.my_role ?? "student");
+        setAddedToCorpus(d.added_to_corpus ?? false);
       })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
   }, [params.id, params.readingId, reloadKey]);
@@ -294,10 +296,12 @@ export default function ReadingPage() {
           type: "text",
           title: reading.title,
           text: reading.raw_text,
+          reading_id: params.readingId,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "加入资料库失败");
+      setAddedToCorpus(true);
       router.push(`/corpus/review/${data.materialId}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -330,15 +334,20 @@ export default function ReadingPage() {
         <h1 className="text-3xl font-bold tracking-tight text-zinc-900">
           {reading.title}
         </h1>
-        {!isTeacher && (
-          <button
-            onClick={addToCorpus}
-            disabled={addingToCorpus}
-            className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-50"
-          >
-            {addingToCorpus ? "AI 提取中…" : "加入我的资料库"}
-          </button>
-        )}
+        {!isTeacher &&
+          (addedToCorpus ? (
+            <span className="rounded-lg bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700">
+              已加入资料库
+            </span>
+          ) : (
+            <button
+              onClick={addToCorpus}
+              disabled={addingToCorpus}
+              className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-50"
+            >
+              {addingToCorpus ? "AI 提取中…" : "加入我的资料库"}
+            </button>
+          ))}
       </div>
       <p className="mt-1 text-xs text-zinc-400">
         {isTeacher

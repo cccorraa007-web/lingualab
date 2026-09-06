@@ -10,14 +10,14 @@ export async function POST(request: Request) {
   if (!auth) return unauthorized();
   const supabase = auth.client;
 
-  let body: { type?: string; title?: string; text?: string };
+  let body: { type?: string; title?: string; text?: string; reading_id?: string };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "请求体不是合法 JSON" }, { status: 400 });
   }
 
-  const { type = "text", title, text } = body;
+  const { type = "text", title, text, reading_id } = body;
   if (typeof text !== "string" || text.trim().length < 50) {
     return NextResponse.json(
       { error: "文本太短，至少需要 50 个字符" },
@@ -32,6 +32,7 @@ export async function POST(request: Request) {
       type,
       title: title?.trim() || null,
       raw_text: text.trim(),
+      reading_id: reading_id || null,
     })
     .select()
     .single();
