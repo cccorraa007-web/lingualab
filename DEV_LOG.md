@@ -183,12 +183,22 @@ LinguaLab 的核心价值主张：**把用户读过的材料，自动转化成�
 - 语料库：`materials` GET 增加 `lang` 字段与 `?lang=` 过滤；`corpus` 页新增「全部/英语/西语」筛选，并在 CEFR 等级旁显示语言标签。
 - 课堂：班级仪表盘（班级名旁）与「必读文章」标题旁显示语言标签（取自 `classrooms.lang`）。
 
-### 4.11 规划中的教学功能
+### 4.11 笔头作业（已实现）
 
-- **笔头作业**：教师发布作业（题目 + 截止时间），学生提交（文字/图片/音频/视频），教师查看、图片提取文字、写反馈，记录未交名单 + 评分留档。
+**设计**：教师发布笔头作业（标题 + 内容 + 截止时间），发布时把当时班级成员固化为「发布对象快照」；学生提交文字，教师查看提交、写评语与打分、看未交名单，学生端看到评语与分数。
+
+**技术方法**：
+- 复用队友交付的数据层 `db/migrate_assignments.sql`（`classroom_assignments` / `assignment_recipients` / `assignment_submissions`），沿用「班级共享表应用层隔离」架构。
+- API：`POST/GET /api/classrooms/[id]/assignments`（发布 + 列表）、`GET .../assignments/[assignmentId]`（详情 + 提交 + 未交名单）、`POST .../assignments/[assignmentId]/submit`（学生提交 upsert）、`POST .../submissions/[submissionId]/grade`（教师批改评分）。
+- 前端：`/teaching/[id]/assignments` 页「笔头作业」区——教师发布/看已交数、批改；学生提交/查看评语分数；未交名单按学生（排除教师）计算。
+- 说明：当前为文字提交；图片/附件上传与 OCR 留作后续。
+
+### 4.12 规划中的教学功能
+
 - 学生档案（阅读时长、生词、答题情况、易错点），下次出题参考档案。
 - 教师端班级分析（个体指标 + 班级整体易错点）。
 - 班级排行榜（前三名激励）。
+- 笔头作业附件上传 + OCR 图片提取文字。
 
 ---
 
