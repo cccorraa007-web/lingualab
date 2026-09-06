@@ -22,7 +22,9 @@ export async function POST(request: Request) {
   const title = typeof body.title === "string" ? body.title.trim() : "";
   const essay = typeof body.essay === "string" ? body.essay.trim() : "";
   const rubric = typeof body.rubric === "string" ? body.rubric.trim() : "";
+  const lang = body.lang === "es" || body.lang === "en" ? body.lang : null;
 
+  if (!lang) return NextResponse.json({ error: "请选择写作语言" }, { status: 400 });
   if (!title) return NextResponse.json({ error: "请填写作文题目" }, { status: 400 });
   if (essay.length < 20) {
     return NextResponse.json({ error: "作文正文至少需要 20 个字符" }, { status: 400 });
@@ -40,7 +42,7 @@ export async function POST(request: Request) {
   try {
     const result = await polishWriting(
       { title, essay, rubric: rubric || undefined },
-      auth.user.lang,
+      lang,
     );
     return NextResponse.json(result);
   } catch (error) {

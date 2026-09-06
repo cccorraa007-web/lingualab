@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { apiFetch, useTargetLang } from "@/lib/auth";
-import { langMeta } from "@/lib/language";
+import { apiFetch } from "@/lib/auth";
+import { langMeta, type TargetLang } from "@/lib/language";
 import type { WritingPolishResult } from "@/lib/ai/writing";
 
 export default function PolishPage() {
-  const lang = useTargetLang();
+  const [lang, setLang] = useState<TargetLang>("es");
   const languageName = langMeta(lang).label;
   const [title, setTitle] = useState("");
   const [essay, setEssay] = useState("");
@@ -29,7 +29,7 @@ export default function PolishPage() {
       const response = await apiFetch("/api/polish", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, essay, rubric }),
+        body: JSON.stringify({ title, essay, rubric, lang }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "润色失败");
@@ -83,7 +83,7 @@ export default function PolishPage() {
       const response = await apiFetch("/api/mistakes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items }),
+        body: JSON.stringify({ items, lang }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "保存失败");
@@ -105,6 +105,29 @@ export default function PolishPage() {
       <p className="mt-2 max-w-3xl text-zinc-600">
         提交{languageName}作文，获得逐条纠错、分维度评分和改进建议。明确的错误可以直接收进错题本。
       </p>
+
+      <div className="mt-6 flex items-center gap-2">
+        <span className="text-sm font-medium text-zinc-600">写作语言</span>
+        {(["es", "en"] as const).map((key) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => {
+              setLang(key);
+              setResult(null);
+              setSelected(new Set());
+              setSaved(false);
+            }}
+            className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
+              lang === key
+                ? "bg-orange-600 text-white"
+                : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
+            }`}
+          >
+            {langMeta(key).label}
+          </button>
+        ))}
+      </div>
 
       <form
         onSubmit={handleSubmit}
