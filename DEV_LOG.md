@@ -149,7 +149,19 @@ LinguaLab 的核心价值主张：**把用户读过的材料，自动转化成�
 - 前端：`Navbar` 增加铃铛 + 未读红点；`/notifications` 通知列表页，点击跳转到对应阅读页并标记已读。
 - 防重复：`materials` 加 `reading_id` 列标记来源；阅读详情接口返回 `added_to_corpus`，前端据此把「加入我的资料库」按钮换成「已加入资料库」。
 
-### 4.8 规划中的教学功能
+### 4.8 辅助备课：AI 生成教学课件（已实现）
+
+**设计**：教师把必读文章作为备课素材——勾画的词汇/批注是**私有的备课依据**（学生不可见），划线的题目**发布给学生**。教师进入「备课模式」后，选择交付格式（PPT/Word）、题型与数量，AI 依据原文 + 教师标注生成教学课件，以可下载文件交付。
+
+**技术方法**：
+- 入口：教师视角在「布置作业」列表**鼠标悬浮**到某篇文章时显示「进入备课」按钮，跳转阅读页的 `?prep=1` 备课模式（不显示学生作答，只聚焦备课）。
+- 数据复用：`reading_annotations`（教师本人勾画/批注）作为生词与教学重点；`reading_questions`（已发布题目）作为练习参考，一并传入 AI。
+- AI 生成 `src/lib/lesson/content.ts`：DeepSeek 输出统一 JSON（`title`/`objectives`/`vocabulary`/`outline`/`exercises`），题型限定 `blank/choice/truefalse/qa`。
+- 文件生成 `src/lib/lesson/build.ts`：`pptxgenjs` 生成 `.pptx`、`docx` 生成 `.docx`，均输出 Buffer 后以 base64 dataURL 返回，前端 `<a download>` 直接下载，免去存储与链接管理。
+- 接口 `POST /api/classrooms/[id]/readings/[readingId]/lesson`：教师鉴权 → 拉取原文/批注/题目 → 校验需求 → 生成 → 返回 `{ filename, mime, dataUrl }`。
+- 许可证：`pptxgenjs`/`docx` 均依赖 `jszip`（`MIT OR GPL-3.0`），已在 `scripts/check-licenses.mjs` 加白名单并注明选择 MIT 分支。
+
+### 4.9 规划中的教学功能
 
 - **笔头作业**：教师发布作业（题目 + 截止时间），学生提交（文字/图片/音频/视频），教师查看、图片提取文字、写反馈，记录未交名单 + 评分留档。
 - 学生档案（阅读时长、生词、答题情况、易错点），下次出题参考档案。

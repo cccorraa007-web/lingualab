@@ -260,47 +260,59 @@ export default function ClassroomAssignmentsPage() {
               const hasQuestions = (r.question_count ?? 0) > 0;
               const pending = myRole === "student" && isActive && !r.done;
               return (
-                <Link
+                <div
                   key={r.id}
-                  href={`/teaching/${params.id}/readings/${r.id}`}
-                  className="flex items-center justify-between rounded-xl border border-zinc-100 bg-white p-4 transition hover:shadow-md"
+                  className="group relative rounded-xl border border-zinc-100 bg-white transition hover:shadow-md"
                 >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="truncate font-medium text-zinc-900">
-                        {r.title}
+                  <Link
+                    href={`/teaching/${params.id}/readings/${r.id}`}
+                    className="flex items-center justify-between p-4"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="truncate font-medium text-zinc-900">
+                          {r.title}
+                        </p>
+                        {pending && (
+                          <span className="h-2 w-2 shrink-0 rounded-full bg-red-500" />
+                        )}
+                      </div>
+                      <p className="mt-1 text-xs text-zinc-400">
+                        {r.ends_at
+                          ? `截止 ${new Date(r.ends_at).toLocaleString("zh-CN")}`
+                          : "长期有效"}
                       </p>
-                      {pending && (
-                        <span className="h-2 w-2 shrink-0 rounded-full bg-red-500" />
-                      )}
                     </div>
-                    <p className="mt-1 text-xs text-zinc-400">
-                      {r.ends_at
-                        ? `截止 ${new Date(r.ends_at).toLocaleString("zh-CN")}`
-                        : "长期有效"}
-                    </p>
-                  </div>
-                  <div className="ml-4 flex shrink-0 items-center gap-2">
-                    {myRole === "student" && isActive && hasQuestions && (
+                    <div className="ml-4 flex shrink-0 items-center gap-2">
+                      {myRole === "student" && isActive && hasQuestions && (
+                        <span
+                          className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                            r.done
+                              ? "bg-emerald-100 text-emerald-700"
+                              : "bg-red-100 text-red-600"
+                          }`}
+                        >
+                          {r.done
+                            ? `已完成 ${r.answered_count}/${r.question_count}`
+                            : `待完成 ${r.answered_count}/${r.question_count}`}
+                        </span>
+                      )}
                       <span
-                        className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                          r.done
-                            ? "bg-emerald-100 text-emerald-700"
-                            : "bg-red-100 text-red-600"
-                        }`}
+                        className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${s.cls}`}
                       >
-                        {r.done
-                          ? `已完成 ${r.answered_count}/${r.question_count}`
-                          : `待完成 ${r.answered_count}/${r.question_count}`}
+                        {s.text}
                       </span>
-                    )}
-                    <span
-                      className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${s.cls}`}
+                    </div>
+                  </Link>
+                  {myRole === "teacher" && (
+                    <Link
+                      href={`/teaching/${params.id}/readings/${r.id}?prep=1`}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg bg-orange-600 px-3 py-1.5 text-xs font-semibold text-white opacity-0 shadow transition group-hover:opacity-100"
                     >
-                      {s.text}
-                    </span>
-                  </div>
-                </Link>
+                      进入备课
+                    </Link>
+                  )}
+                </div>
               );
             })
           )}
