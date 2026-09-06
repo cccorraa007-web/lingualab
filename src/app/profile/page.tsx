@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   apiFetch,
   useUserInfo,
@@ -19,7 +21,23 @@ const TABS: { key: Tab; label: string }[] = [
 ];
 
 export default function ProfilePage() {
-  const [tab, setTab] = useState<Tab>("settings");
+  return (
+    <Suspense
+      fallback={
+        <div className="mx-auto max-w-5xl px-4 py-10 text-zinc-400">加载中…</div>
+      }
+    >
+      <ProfileContent />
+    </Suspense>
+  );
+}
+
+function ProfileContent() {
+  const searchParams = useSearchParams();
+  const [tab, setTab] = useState<Tab>(() => {
+    const t = searchParams.get("tab");
+    return t === "help" || t === "stats" ? t : "settings";
+  });
   const { username, email, avatarUrl } = useUserInfo();
 
   return (
@@ -236,13 +254,127 @@ function StatCard({ label, value }: { label: string; value: number }) {
   );
 }
 
+function HelpSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="rounded-2xl border border-zinc-100 bg-white p-6">
+      <h2 className="text-base font-bold text-zinc-900">{title}</h2>
+      <div className="mt-3 space-y-2 text-sm leading-6 text-zinc-600">
+        {children}
+      </div>
+    </section>
+  );
+}
+
+function HelpItem({ name, desc }: { name: string; desc: string }) {
+  return (
+    <div>
+      <p className="font-medium text-zinc-800">{name}</p>
+      <p className="text-zinc-500">{desc}</p>
+    </div>
+  );
+}
+
+function HelpStep({ n, children }: { n: number; children: ReactNode }) {
+  return (
+    <div className="flex gap-2">
+      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-orange-100 text-xs font-bold text-orange-700">
+        {n}
+      </span>
+      <span className="text-zinc-600">{children}</span>
+    </div>
+  );
+}
+
 function HelpTab() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold tracking-tight text-zinc-900">帮助</h1>
-      <div className="rounded-2xl border border-dashed border-zinc-200 p-10 text-center text-zinc-400">
-        使用文档即将上线，敬请期待
-      </div>
+
+      <HelpSection title="LinguaLab 是什么">
+        <p>
+          LinguaLab 是一个面向中文母语者的外语学习平台，围绕「把读过的外语，变成能说的外语」这一核心思路，
+          提供<b>自学模式</b>与<b>教学模式</b>两种用法。目前支持<b>西班牙语</b>和<b>英语</b>两种目标语言。
+        </p>
+        <p>
+          界面均为中文；学习语言不再是账户级设置，而是<b>按素材自动识别</b>（导入的英语材料就按英语处理），
+          口语练习时可手动选择练习语言。
+        </p>
+      </HelpSection>
+
+      <HelpSection title="自学模式（适合自学者）">
+        <HelpItem
+          name="语料库"
+          desc="粘贴一篇文章，AI 自动识别语言、判断话题与难度，并提取关键词、地道表达和口语练习问题，建成你的专属语料库。可在语料库按语言（英语/西语）筛选。"
+        />
+        <HelpItem
+          name="口语练习"
+          desc="自由练习：选一个话题，AI 考官围绕你的语料由浅入深提问，支持语音回答，结束后给出润色建议；考题模式：参考 SIELE 口语考试抽题、限时录音。练习前先在页面顶部选好练习语言。"
+        />
+        <HelpItem
+          name="错题本"
+          desc="把口语练习里的润色建议中「错误 → 正确」的条目加入错题本，再用口译练习反复巩固，直到掌握。"
+        />
+        <HelpItem
+          name="写作润色"
+          desc="（建设中）把写的外语改得地道，并说明为什么。"
+        />
+      </HelpSection>
+
+      <HelpSection title="教学模式（适合教师与学生）">
+        <HelpItem
+          name="班级管理"
+          desc="教师创建班级获得邀请码，学生在「教学模式」里输入邀请码加入，教师审批通过后即可开始。创建/加入时选择「以教师身份」或「以学生身份」。"
+        />
+        <HelpItem
+          name="必读文章"
+          desc="教师发布必读文章并设置起止时间；学生在时间窗口内阅读。文章语言在发布时自动识别，并标注在班级上。"
+        />
+        <HelpItem
+          name="勾画批注与划线出题"
+          desc="选中原文即可勾画词汇、添加批注；教师还能针对选中句子「划线出题」，题目学生可见并作答。"
+        />
+        <HelpItem
+          name="课后作业（阅读题）"
+          desc="学生回答老师划线的题目，教师查看全班作答并写批改留言；学生收到批改通知。"
+        />
+        <HelpItem
+          name="笔头作业"
+          desc="教师发布笔头作业（标题 + 内容 + 截止时间），学生提交文字，教师写评语、打分并查看未交名单。"
+        />
+        <HelpItem
+          name="辅助备课"
+          desc="教师进入文章的「备课模式」，勾画重点词汇、批注后，点击「辅助备课」选择格式（PPT/Word）、题型与数量，AI 据此生成可下载的教学课件。"
+        />
+      </HelpSection>
+
+      <HelpSection title="推荐使用流程">
+        <div className="space-y-3">
+          <p className="font-semibold text-zinc-800">自学者</p>
+          <HelpStep n={1}>在「语料库」导入一篇想学的文章，AI 自动提取学习素材。</HelpStep>
+          <HelpStep n={2}>进入「口语练习」，选语言、选话题，和 AI 考官对话开口练习。</HelpStep>
+          <HelpStep n={3}>结束后查看润色建议，把易错点加入「错题本」。</HelpStep>
+          <HelpStep n={4}>回到「错题本」做口译练习，反复巩固直到掌握。</HelpStep>
+
+          <p className="pt-2 font-semibold text-zinc-800">教师</p>
+          <HelpStep n={1}>创建班级，把邀请码发给学生，审批入班。</HelpStep>
+          <HelpStep n={2}>发布「必读文章」，点进文章划线出题、勾画批注。</HelpStep>
+          <HelpStep n={3}>发布「笔头作业」，设置截止时间。</HelpStep>
+          <HelpStep n={4}>需要课件时，进入文章「备课模式」→「辅助备课」生成 PPT/Word。</HelpStep>
+          <HelpStep n={5}>在「课后作业」查看学生作答与提交，批改留言、打分。</HelpStep>
+
+          <p className="pt-2 font-semibold text-zinc-800">学生</p>
+          <HelpStep n={1}>输入邀请码加入班级，等待教师审批。</HelpStep>
+          <HelpStep n={2}>阅读「必读文章」，勾画生词、回答老师题目。</HelpStep>
+          <HelpStep n={3}>按时完成「笔头作业」并提交。</HelpStep>
+          <HelpStep n={4}>查看教师批改与评语，在右上角铃铛里收到通知。</HelpStep>
+        </div>
+      </HelpSection>
     </div>
   );
 }
