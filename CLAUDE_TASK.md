@@ -2,6 +2,8 @@
 
 > 把本文档全文粘贴给 Claude Code，让它先读仓库后再开始开发。你是 LinguaLab 项目的开发者，负责「写作」相关模块。
 
+> ⚠️ **开发前务必先执行 `git pull`**：`main` 分支已有大量更新（笔头作业媒体/OCR 已合并、帮助文档、卡片改名等）。并先读根目录的 `WRITING_FIX_TASKS.md`（笔头作业有两处待修）。
+
 ## 一、项目背景（先了解）
 
 LinguaLab 是一个面向中文母语者的外语学习平台，界面为中文，学习目标语言为西班牙语/英语（通过 `TargetLang` 参数化）。技术栈：Next.js 16（App Router）+ React + Tailwind + Supabase（数据库/认证）+ DeepSeek（大模型）+ 阿里云 NLS（语音）。
