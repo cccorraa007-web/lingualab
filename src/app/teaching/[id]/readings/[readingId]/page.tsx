@@ -141,6 +141,7 @@ export default function ReadingPage() {
   const [lessonTypes, setLessonTypes] = useState<string[]>(["blank", "choice"]);
   const [lessonCount, setLessonCount] = useState(10);
   const [lessonExtra, setLessonExtra] = useState("");
+  const [lessonWordExplanation, setLessonWordExplanation] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [lessonResult, setLessonResult] = useState<{
     filename: string;
@@ -356,6 +357,7 @@ export default function ReadingPage() {
             questionTypes: lessonTypes,
             questionCount: lessonCount,
             extra: lessonExtra,
+            wordExplanation: lessonWordExplanation,
           }),
         },
       );
@@ -778,6 +780,21 @@ export default function ReadingPage() {
                     className="mt-2 w-28 rounded-lg border border-zinc-200 px-3 py-1.5 text-sm"
                   />
                 </div>
+
+                <label className="mt-4 flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={lessonWordExplanation}
+                    onChange={(e) => setLessonWordExplanation(e.target.checked)}
+                    className="h-4 w-4 accent-orange-600"
+                  />
+                  <span className="text-sm font-semibold text-zinc-700">
+                    需要单词讲解
+                  </span>
+                  <span className="text-xs text-zinc-400">
+                    （为勾画的单词生成词性、释义、例句；PPT 一词一页，Word 用字号区分）
+                  </span>
+                </label>
 
                 <div className="mt-4">
                   <p className="text-sm font-semibold text-zinc-700">

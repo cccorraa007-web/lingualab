@@ -3,14 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import {
-  apiFetch,
-  useAuth,
-  signOut,
-  useTargetLang,
-  setTargetLang,
-} from "@/lib/auth";
-import { LANGS, PRODUCT_NAME, type TargetLang } from "@/lib/language";
+import { apiFetch, useAuth, signOut } from "@/lib/auth";
+import { PRODUCT_NAME } from "@/lib/language";
 import UserAvatar from "@/components/UserAvatar";
 
 const selfStudyItems = [
@@ -26,7 +20,6 @@ export default function Navbar() {
   const [open, setOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const { user } = useAuth();
-  const lang = useTargetLang();
   const router = useRouter();
   const username = (user?.user_metadata?.username as string) || user?.email || "";
   const avatarUrl = (user?.user_metadata?.avatar_url as string) || "";
@@ -108,23 +101,6 @@ export default function Navbar() {
           >
             开始练习
           </Link>
-          {user && (
-            <select
-              value={lang}
-              onChange={(e) => {
-                void setTargetLang(e.target.value as TargetLang).then(() =>
-                  router.refresh(),
-                );
-              }}
-              className="ml-2 rounded-lg border border-zinc-200 px-2 py-1.5 text-xs text-zinc-600"
-            >
-              {(Object.keys(LANGS) as TargetLang[]).map((k) => (
-                <option key={k} value={k}>
-                  学{LANGS[k].label}
-                </option>
-              ))}
-            </select>
-          )}
           {user ? (
             <div className="ml-3 flex items-center gap-2">
               <Link

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getUserClient, unauthorized } from "@/lib/supabase/server-auth";
+import { detectLanguage } from "@/lib/language";
 
 export const dynamic = "force-dynamic";
 
@@ -139,6 +140,11 @@ export async function POST(
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  await supabase
+    .from("classrooms")
+    .update({ lang: detectLanguage(text) })
+    .eq("id", id);
 
   return NextResponse.json({ reading });
 }

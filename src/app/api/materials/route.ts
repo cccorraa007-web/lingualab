@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getUserClient, unauthorized } from "@/lib/supabase/server-auth";
 import { processCorpus } from "@/lib/ai/pipeline";
+import { detectLanguage } from "@/lib/language";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -33,6 +34,7 @@ export async function POST(request: Request) {
       title: title?.trim() || null,
       raw_text: text.trim(),
       reading_id: reading_id || null,
+      lang: detectLanguage(text),
     })
     .select()
     .single();
@@ -44,7 +46,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await processCorpus(text.trim(), auth.user.lang);
+    const result = await processCorpus(text.trim(), detectLanguage(text));
 
     await supabase
       .from("materials")

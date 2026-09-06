@@ -43,23 +43,23 @@
    const res = await apiFetch("/api/xxx", { method: "POST", headers: {...}, body: JSON.stringify({...}) });
    ```
 
-2. **后端鉴权用 `getUserClient`**，拿用户 id 和语言：
+2. **后端鉴权用 `getUserClient`**，拿用户 id：
    ```ts
    import { getUserClient, unauthorized } from "@/lib/supabase/server-auth";
    const auth = await getUserClient(request);
    if (!auth) return unauthorized();
    const supabase = auth.client;   // 带用户上下文的客户端
    const userId = auth.user.id;    // 用户 id
-   const lang = auth.user.lang;    // 学习语言 "es" | "en"
    ```
    所有按用户隔离的查询/写入都要带 `user_id`（`eq("user_id", userId)`，插入时 `user_id: userId`）。
 
-3. **学习目标语言用 `TargetLang` 参数化**，别硬编码「西语/西班牙语/英语」。
+3. **语言不再存账户**，改为「按素材自动识别」，别硬编码「西语/西班牙语/英语」。
    ```ts
-   import { langMeta, type TargetLang } from "@/lib/language";
-   const name = langMeta(lang).label;   // "西班牙语" / "英语"
+   import { detectLanguage, langMeta, type TargetLang } from "@/lib/language";
+   const lang = detectLanguage(text);        // 自动判定 "es" | "en"
+   const name = langMeta(lang).label;        // "西班牙语" / "英语"
    ```
-   前端用 `useTargetLang()` 拿当前语言。
+   语料 `materials.lang`、班级 `classrooms.lang`、错题 `mistake_book.lang` 存检测结果；AI 提示词里涉及语言的地方用 `langMeta(lang).label` 动态拼。
 
 4. **调 AI 用现成封装**：
    ```ts
@@ -215,11 +215,11 @@ git checkout 你的分支 && git merge main      # 合并前先同步
 
 | 文件 | 作用 |
 |------|------|
-| `src/lib/auth.ts` | `apiFetch`、`useAuth`、`useTargetLang`、`signIn/signUp` |
-| `src/lib/supabase/server-auth.ts` | `getUserClient(request)` → `{client, user:{id, email, lang}}`、`unauthorized()` |
+| `src/lib/auth.ts` | `apiFetch`、`useAuth`、`useUserInfo`、`signIn/signUp` |
+| `src/lib/supabase/server-auth.ts` | `getUserClient(request)` → `{client, user:{id, email}}`、`unauthorized()` |
 | `src/lib/ai/deepseek.ts` | `chatJSON`（结构化 JSON）、`chatText`（纯文本） |
 | `src/lib/ai/practice.ts` | 口语：`chatReply`、`polishAnswers`、`generateInterpretingPrompt`、`evaluateInterpreting` |
-| `src/lib/language.ts` | `TargetLang`、`langMeta(lang).label/short/brand`、`PRODUCT_NAME` |
+| `src/lib/language.ts` | `TargetLang`、`detectLanguage`、`langMeta(lang).label/short`、`PRODUCT_NAME` |
 | `src/app/practice/page.tsx` | 口语练习（自由练习 + 考题模式），含「对话→润色→错题本」闭环 |
 | `src/components/InterpretingPractice.tsx` | 错题本口译练习组件（你要升级成口译/笔译） |
 

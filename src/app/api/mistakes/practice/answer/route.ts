@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getUserClient, unauthorized } from "@/lib/supabase/server-auth";
 import { evaluateInterpreting } from "@/lib/ai/practice";
 import type { InterpretingMistake } from "@/lib/ai/practice";
+import { detectLanguage } from "@/lib/language";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -37,7 +38,7 @@ export async function POST(request: Request) {
     mistake as InterpretingMistake,
     prompt,
     answer.trim(),
-    auth.user.lang,
+    detectLanguage(`${mistake.correct} ${mistake.wrong} ${mistake.example ?? ""}`),
   );
 
   if (correct) {

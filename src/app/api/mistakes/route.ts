@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getUserClient, unauthorized } from "@/lib/supabase/server-auth";
+import { detectLanguage } from "@/lib/language";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,7 @@ export async function POST(request: Request) {
   const supabase = auth.client;
 
   let body: {
+    lang?: string;
     items?: {
       error_type?: string;
       wrong?: string;
@@ -41,11 +43,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "请求体不是合法 JSON" }, { status: 400 });
   }
 
-  const { items } = body;
+  const { items, lang } = body;
   if (!Array.isArray(items) || items.length === 0) {
     return NextResponse.json({ error: "缺少要保存的错题" }, { status: 400 });
   }
 
+  const langValue =
+    lang === "en" ? "en" : lang === "es" ? "es" : undefined;
   const rows = items
     .filter((it) => it.wrong && it.correct)
     .map((it) => ({
@@ -55,6 +59,8 @@ export async function POST(request: Request) {
       correct: it.correct as string,
       example: it.example ?? null,
       note: it.note ?? null,
+      lang:
+        langValue ?? detectLanguage(`${it.correct} ${it.wrong} ${it.example ?? ""}`),
     }));
 
   if (rows.length === 0) {

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getUserClient, unauthorized } from "@/lib/supabase/server-auth";
 import { generateInterpretingPrompt } from "@/lib/ai/practice";
 import type { InterpretingMistake } from "@/lib/ai/practice";
+import { detectLanguage } from "@/lib/language";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -36,7 +37,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ done: true, reason: "reviewed" });
   }
 
-  const mistake = candidates[0] as InterpretingMistake;
-  const prompt = await generateInterpretingPrompt(mistake, auth.user.lang);
-  return NextResponse.json({ done: false, mistake, prompt });
+  const mistake = candidates[0] as InterpretingMistake & { lang?: string };
+  const lang = detectLanguage(
+    `${mistake.correct} ${mistake.wrong} ${mistake.example ?? ""}`,
+  );
+  const prompt = await generateInterpretingPrompt(mistake, lang);
+  return NextResponse.json({ done: false, mistake, prompt, lang });
 }

@@ -46,9 +46,9 @@ LinguaLab 是一个面向中文母语者的外语学习平台，界面为中文�
 ## 三、必须遵守的铁律
 
 1. **前端调 API 用 `apiFetch`**（`import { apiFetch } from "@/lib/auth"`），不要用原生 `fetch`。
-2. **后端鉴权用 `getUserClient`**：`const auth = await getUserClient(request); if (!auth) return unauthorized();`，然后 `auth.client`（带用户上下文的 Supabase 客户端）、`auth.user.id`、`auth.user.lang`。
+2. **后端鉴权用 `getUserClient`**：`const auth = await getUserClient(request); if (!auth) return unauthorized();`，然后 `auth.client`（带用户上下文的 Supabase 客户端）、`auth.user.id`。
 3. **用户数据按 `user_id` 隔离**：查询加 `.eq("user_id", userId)`，插入加 `user_id: userId`。
-4. **学习语言用 `TargetLang` 参数化**：`langMeta(lang).label` 得到「西班牙语/英语」，AI 提示词里涉及语言的地方都用它拼，**禁止硬编码「西语/西班牙语/英语」**。
+4. **语言按素材自动识别**：`detectLanguage(text)` 得 `"es"/"en"`，`langMeta(lang).label` 得「西班牙语/英语」，AI 提示词里涉及语言的地方都用它拼，**禁止硬编码「西语/西班牙语/英语」**。
 5. **调 AI 用现成封装**：`chatJSON`（结构化 JSON）、`chatText`（纯文本），从 `src/lib/ai/deepseek.ts` 导入。
 6. **新增 AI 函数放新文件 `src/lib/ai/writing.ts`**，不要改 `practice.ts`（那是负责人负责的文件）。
 7. **新增数据库表**：SQL 写 `db/migrate_xxx.sql`；用户表要有 `user_id`；班级共享表隔离在应用层。

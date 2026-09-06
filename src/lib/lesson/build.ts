@@ -8,6 +8,7 @@ import {
   Table,
   TableCell,
   TableRow,
+  TextRun,
   WidthType,
 } from "docx";
 import type { GeneratedLesson, QuestionType } from "./content";
@@ -72,32 +73,70 @@ export async function buildPptx(lesson: GeneratedLesson): Promise<Buffer> {
   }
 
   if (lesson.vocabulary.length > 0) {
-    const s = pptx.addSlide();
-    s.addText("生词表", {
-      x: 0.6,
-      y: 0.4,
-      w: 11.8,
-      h: 0.6,
-      fontSize: 24,
-      bold: true,
-      color: ORANGE,
-    });
-    const rows: PptxGenJS.TableRow[] = [
-      [
-        { text: "词汇", options: { bold: true, fill: { color: "FFEDD5" } } },
-        { text: "释义", options: { bold: true, fill: { color: "FFEDD5" } } },
-      ],
-    ];
-    for (const v of lesson.vocabulary) {
-      rows.push([{ text: v.word }, { text: v.meaning }]);
+    if (lesson.wordExplanation) {
+      for (const v of lesson.vocabulary) {
+        const s = pptx.addSlide();
+        s.addText(v.word, {
+          x: 0.6,
+          y: 1.6,
+          w: 11.8,
+          h: 1.0,
+          fontSize: 40,
+          bold: true,
+          color: DARK,
+        });
+        const details: { text: string; options: Record<string, unknown> }[] = [];
+        if (v.pos) {
+          details.push({
+            text: v.pos,
+            options: { color: ORANGE, bold: true },
+          });
+        }
+        if (v.meaning) {
+          details.push({ text: v.meaning, options: { color: GRAY } });
+        }
+        if (v.example) {
+          details.push({ text: v.example, options: { color: DARK, italic: true } });
+        }
+        if (details.length > 0) {
+          s.addText(details, {
+            x: 0.6,
+            y: 2.8,
+            w: 11.8,
+            h: 2.5,
+            fontSize: 20,
+            paraSpaceAfter: 10,
+          });
+        }
+      }
+    } else {
+      const s = pptx.addSlide();
+      s.addText("生词表", {
+        x: 0.6,
+        y: 0.4,
+        w: 11.8,
+        h: 0.6,
+        fontSize: 24,
+        bold: true,
+        color: ORANGE,
+      });
+      const rows: PptxGenJS.TableRow[] = [
+        [
+          { text: "词汇", options: { bold: true, fill: { color: "FFEDD5" } } },
+          { text: "释义", options: { bold: true, fill: { color: "FFEDD5" } } },
+        ],
+      ];
+      for (const v of lesson.vocabulary) {
+        rows.push([{ text: v.word }, { text: v.meaning }]);
+      }
+      s.addTable(rows, {
+        x: 0.8,
+        y: 1.2,
+        w: 11,
+        fontSize: 14,
+        border: { color: "E4E4E7" },
+      });
     }
-    s.addTable(rows, {
-      x: 0.8,
-      y: 1.2,
-      w: 11,
-      fontSize: 14,
-      border: { color: "E4E4E7" },
-    });
   }
 
   for (const o of lesson.outline) {
@@ -200,26 +239,57 @@ export async function buildDocx(lesson: GeneratedLesson): Promise<Buffer> {
     children.push(
       new Paragraph({ text: "生词表", heading: HeadingLevel.HEADING_1 }),
     );
-    const rows = [
-      new TableRow({
-        children: [
-          new TableCell({ children: [new Paragraph("词汇")] }),
-          new TableCell({ children: [new Paragraph("释义")] }),
-        ],
-      }),
-      ...lesson.vocabulary.map(
-        (v) =>
-          new TableRow({
-            children: [
-              new TableCell({ children: [new Paragraph(v.word)] }),
-              new TableCell({ children: [new Paragraph(v.meaning)] }),
-            ],
+    if (lesson.wordExplanation) {
+      for (const v of lesson.vocabulary) {
+        children.push(
+          new Paragraph({
+            text: v.word,
+            heading: HeadingLevel.HEADING_2,
           }),
-      ),
-    ];
-    children.push(
-      new Table({ rows, width: { size: 100, type: WidthType.PERCENTAGE } }),
-    );
+        );
+        if (v.pos) {
+          children.push(
+            new Paragraph({
+              children: [
+                new TextRun({ text: v.pos, bold: true, color: ORANGE }),
+              ],
+            }),
+          );
+        }
+        if (v.meaning) {
+          children.push(new Paragraph({ text: v.meaning }));
+        }
+        if (v.example) {
+          children.push(
+            new Paragraph({
+              children: [new TextRun({ text: v.example, italics: true })],
+              spacing: { after: 160 },
+            }),
+          );
+        }
+      }
+    } else {
+      const rows = [
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph("词汇")] }),
+            new TableCell({ children: [new Paragraph("释义")] }),
+          ],
+        }),
+        ...lesson.vocabulary.map(
+          (v) =>
+            new TableRow({
+              children: [
+                new TableCell({ children: [new Paragraph(v.word)] }),
+                new TableCell({ children: [new Paragraph(v.meaning)] }),
+              ],
+            }),
+        ),
+      ];
+      children.push(
+        new Table({ rows, width: { size: 100, type: WidthType.PERCENTAGE } }),
+      );
+    }
   }
 
   if (lesson.outline.length > 0) {

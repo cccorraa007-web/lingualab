@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { getSupabaseBrowser } from "@/lib/supabase/browser";
-import { parseTargetLang, type TargetLang } from "@/lib/language";
 
 export async function getSessionToken(): Promise<string | null> {
   const supabase = getSupabaseBrowser();
@@ -30,22 +29,16 @@ export async function signIn(email: string, password: string): Promise<string | 
 export async function signUp(
   email: string,
   password: string,
-  lang: TargetLang,
   username: string,
 ): Promise<{ error: string | null; needsConfirm: boolean }> {
   const supabase = getSupabaseBrowser();
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
-    options: { data: { target_lang: lang, username: username.trim() } },
+    options: { data: { username: username.trim() } },
   });
   if (error) return { error: error.message, needsConfirm: false };
   return { error: null, needsConfirm: !data.session };
-}
-
-export async function setTargetLang(lang: TargetLang): Promise<void> {
-  const supabase = getSupabaseBrowser();
-  await supabase.auth.updateUser({ data: { target_lang: lang } });
 }
 
 export async function updateUsername(username: string): Promise<string | null> {
@@ -110,11 +103,6 @@ export function useAuth(): { user: User | null; loading: boolean } {
   }, []);
 
   return { user, loading };
-}
-
-export function useTargetLang(): TargetLang {
-  const { user } = useAuth();
-  return parseTargetLang(user?.user_metadata?.target_lang);
 }
 
 export function useUserInfo(): {

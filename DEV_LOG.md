@@ -161,7 +161,19 @@ LinguaLab 的核心价值主张：**把用户读过的材料，自动转化成�
 - 接口 `POST /api/classrooms/[id]/readings/[readingId]/lesson`：教师鉴权 → 拉取原文/批注/题目 → 校验需求 → 生成 → 返回 `{ filename, mime, dataUrl }`。
 - 许可证：`pptxgenjs`/`docx` 均依赖 `jszip`（`MIT OR GPL-3.0`），已在 `scripts/check-licenses.mjs` 加白名单并注明选择 MIT 分支。
 
-### 4.9 规划中的教学功能
+### 4.9 单词讲解 + 语言自动识别（已实现）
+
+**设计**：备课时可勾选「需要单词讲解」，AI 为教师勾画的每个词生成**词性 + 释义 + 例句**；PPT 一词一页，Word 用字号区分（词大、释义/例句小）。同时彻底移除账户级目标语言，语言改为**按素材自动识别**。
+
+**技术方法**：
+- 单词讲解：`content.ts` 的 `vocabulary` 增加 `pos`/`example` 字段，`wordExplanation` 开关控制是否生成；`build.ts` 按开关在 PPT 逐词一页、Word 逐词分节（`TextRun` 字号/加粗/斜体区分）或维持简单生词表。
+- 语言识别：`language.ts` 新增 `detectLanguage(text)`——按西语功能词 + 重音字符 vs 英语功能词打分，导入时自动判定 es/en。
+- 数据层 `db/migrate_language.sql`：`materials.lang`、`classrooms.lang`、`mistake_book.lang` 三个语言列（默认 `es`）。
+- 语料库：`materials` 导入时存 `lang`，翻译用 `material.lang`；口语练习/润色/错题口译按内容语言判定，错题保存时记录 `lang`。
+- 教学模式：发布必读文章时检测语言并回写 `classrooms.lang`，辅助备课改用 `classrooms.lang`（不再用账户语言）。
+- 移除全局语言选择：登录/注册页、导航栏的语言切换均删除；`signUp`/`setTargetLang`/`useTargetLang` 移除；主页品牌统一为 `LinguaLab`（去掉 HablaYa/SpeakUp）。
+
+### 4.10 规划中的教学功能
 
 - **笔头作业**：教师发布作业（题目 + 截止时间），学生提交（文字/图片/音频/视频），教师查看、图片提取文字、写反馈，记录未交名单 + 评分留档。
 - 学生档案（阅读时长、生词、答题情况、易错点），下次出题参考档案。

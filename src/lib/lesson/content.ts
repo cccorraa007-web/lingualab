@@ -15,11 +15,14 @@ export interface LessonRequirement {
   questionTypes: QuestionType[];
   questionCount: number;
   extra?: string;
+  wordExplanation?: boolean;
 }
 
 export interface LessonVocabulary {
   word: string;
   meaning: string;
+  pos?: string;
+  example?: string;
 }
 
 export interface LessonOutline {
@@ -40,6 +43,7 @@ export interface GeneratedLesson {
   vocabulary: LessonVocabulary[];
   outline: LessonOutline[];
   exercises: LessonExercise[];
+  wordExplanation: boolean;
 }
 
 interface LessonInput {
@@ -92,7 +96,7 @@ ${input.requirement.extra ? `- 补充要求：${input.requirement.extra}` : ""}
 {
   "title": "课件标题",
   "objectives": ["教学目标（中文，2~3 条）"],
-  "vocabulary": [{"word": "词汇原文", "meaning": "中文释义"}],
+  "vocabulary": [{"word": "词汇原文", "meaning": "中文释义", "pos": "词性（中文）", "example": "例句"}],
   "outline": [{"title": "内容章节标题（${name}）", "points": ["要点（${name}）"]}],
   "exercises": [
     {
@@ -106,7 +110,7 @@ ${input.requirement.extra ? `- 补充要求：${input.requirement.extra}` : ""}
 
 字段规则：
 - objectives 用中文写，面向教师的备课目标。
-- vocabulary 必须优先来自教师标注的重点词汇（可补充少量文内生词），word 用${name}原文、meaning 用中文。
+- vocabulary 必须优先来自教师标注的重点词汇（可补充少量文内生词），word 用${name}原文、meaning 用中文；${input.requirement.wordExplanation ? "必须为每个词给出 pos（词性，如 名词/动词/形容词/副词/介词等）和 example（一个自然的" + name + "例句，可附中文翻译）。" : "pos 与 example 可省略。"}
 - outline 用于 PPT/Word 的正文讲解，title 与 points 用${name}（可少量夹注中文）。
 - exercises 的 type 只能取 blank/choice/truefalse/qa，且只使用要求的题型；数量尽量接近要求总数。
 - choice 题 options 至少 3 个、answer 填正确选项字母（如 "B"）；truefalse 的 options 为 ["正确","错误"]、answer 填其一；blank/qa 的 options 为空数组、answer 填参考答案。
@@ -135,6 +139,8 @@ export async function generateLessonContent(
           .map((v) => ({
             word: v.word,
             meaning: typeof v.meaning === "string" ? v.meaning : "",
+            pos: typeof v.pos === "string" ? v.pos : undefined,
+            example: typeof v.example === "string" ? v.example : undefined,
           }))
       : [],
     outline: Array.isArray(raw.outline)
@@ -169,5 +175,6 @@ export async function generateLessonContent(
             answer: typeof e.answer === "string" ? e.answer : "",
           }))
       : [],
+    wordExplanation: input.requirement.wordExplanation === true,
   };
 }

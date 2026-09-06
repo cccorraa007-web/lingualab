@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { topicName } from "@/lib/topics";
-import { apiFetch, useTargetLang } from "@/lib/auth";
-import { langMeta, type TargetLang } from "@/lib/language";
+import { apiFetch } from "@/lib/auth";
+import { detectLanguage, langMeta, type TargetLang } from "@/lib/language";
 
 interface ChatMsg {
   role: "user" | "assistant";
@@ -32,12 +32,13 @@ interface PromptCard {
 
 let ttsAudio: HTMLAudioElement | null = null;
 
-async function speak(text: string, lang: TargetLang) {
+async function speak(text: string) {
   try {
     if (ttsAudio) {
       ttsAudio.pause();
       ttsAudio = null;
     }
+    const lang = detectLanguage(text);
     const res = await apiFetch("/api/speech/tts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -263,7 +264,7 @@ async function startStreamingRecorder(lang: TargetLang): Promise<StreamingRecord
 }
 
 function FreePractice() {
-  const lang = useTargetLang();
+  const [lang, setLang] = useState<TargetLang>("es");
   const [tags, setTags] = useState<string[]>([]);
   const [topic, setTopic] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMsg[]>([]);
@@ -306,8 +307,9 @@ function FreePractice() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "失败");
+      setLang(detectLanguage(data.reply));
       setMessages([{ role: "assistant", content: data.reply }]);
-      speak(data.reply, lang);
+      speak(data.reply);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -330,8 +332,9 @@ function FreePractice() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "失败");
+      setLang(detectLanguage(data.reply));
       setMessages([...next, { role: "assistant", content: data.reply }]);
-      speak(data.reply, lang);
+      speak(data.reply);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -403,7 +406,7 @@ function FreePractice() {
       const res = await apiFetch("/api/mistakes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items }),
+        body: JSON.stringify({ items, lang }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "保存失败");
@@ -455,7 +458,7 @@ function FreePractice() {
   if (!topic) {
     return (
       <div>
-        <p className="text-zinc-600">选择一个话题，AI 将基于你的语料库内容用{langMeta(lang).short}与你对话，由浅入深引导你开口。</p>
+        <p className="text-zinc-600">选择一个话题，AI 将基于你的语料库内容与你对话，由浅入深引导你开口。</p>
         {tags.length === 0 ? (
           <div className="mt-6 rounded-2xl border border-dashed border-zinc-200 p-10 text-center text-zinc-400">
             语料库还没有任何标签，请先去「语料库」导入文章
@@ -659,7 +662,7 @@ function FreePractice() {
               点下方「语音回答」开始说，说完再点一次停止
             </p>
             <button
-              onClick={() => lastAssistant && speak(lastAssistant.content, lang)}
+              onClick={() => lastAssistant && speak(lastAssistant.content)}
               className="mt-3 text-xs text-blue-600 hover:underline"
             >
               重听问题
@@ -735,7 +738,7 @@ const EXAM_TYPES = [
 ];
 
 function ExamPractice() {
-  const lang = useTargetLang();
+  const [lang, setLang] = useState<TargetLang>("es");
   const [question, setQuestion] = useState<PromptCard | null>(null);
   const [phase, setPhase] = useState<"idle" | "prepare" | "answer" | "done">(
     "idle",
@@ -789,6 +792,7 @@ function ExamPractice() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "抽题失败");
       setQuestion(data.question);
+      setLang(detectLanguage(data.question?.content ?? ""));
       setPrepareSeconds(120);
       setAnswerSeconds(seconds);
       setPhase("prepare");

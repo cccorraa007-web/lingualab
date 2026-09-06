@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getUserClient, unauthorized } from "@/lib/supabase/server-auth";
 import { generateExamQuestion } from "@/lib/ai/practice";
+import { detectLanguage } from "@/lib/language";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -31,9 +32,11 @@ export async function POST(request: Request) {
     .join("\n");
 
   try {
-    const content = await generateExamQuestion(type, context, auth.user.lang);
+    const lang = detectLanguage(context);
+    const content = await generateExamQuestion(type, context, lang);
     return NextResponse.json({
       question: { content, zh: null, extra: {} },
+      lang,
     });
   } catch (e) {
     return NextResponse.json(

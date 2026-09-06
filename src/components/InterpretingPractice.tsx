@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { apiFetch, useTargetLang } from "@/lib/auth";
-import { langMeta } from "@/lib/language";
+import { apiFetch } from "@/lib/auth";
+import { detectLanguage, langMeta, type TargetLang } from "@/lib/language";
 
 interface Mistake {
   id: string;
@@ -28,7 +28,7 @@ export default function InterpretingPractice({
 }: {
   onBack: () => void;
 }) {
-  const lang = useTargetLang();
+  const [lang, setLang] = useState<TargetLang>("es");
   const [state, setState] = useState<PracticeState | null>(null);
   const [done, setDone] = useState(false);
   const [doneReason, setDoneReason] = useState("");
@@ -54,6 +54,7 @@ export default function InterpretingPractice({
         } else {
           setDone(false);
           setState({ mistake: d.mistake, prompt: d.prompt });
+          setLang(detectLanguage(d.mistake?.correct ?? ""));
         }
       })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)))

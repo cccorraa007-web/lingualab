@@ -17,7 +17,7 @@ export async function POST(
 
   const { data: material, error: mErr } = await supabase
     .from("materials")
-    .select("raw_text, translation")
+    .select("raw_text, translation, lang")
     .eq("id", id)
     .eq("user_id", auth.user.id)
     .single();
@@ -30,7 +30,7 @@ export async function POST(
   }
 
   try {
-    const translation = await translateText(material.raw_text, auth.user.lang);
+    const translation = await translateText(material.raw_text, material.lang);
     await supabase
       .from("materials")
       .update({ translation })

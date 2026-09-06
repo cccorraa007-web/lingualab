@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { getUserClient, unauthorized } from "@/lib/supabase/server-auth";
 import { chatReply } from "@/lib/ai/practice";
 import type { ChatMessage } from "@/lib/ai/deepseek";
+import { detectLanguage } from "@/lib/language";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -62,6 +63,7 @@ export async function POST(request: Request) {
   }));
 
   const context = await getTopicContext(auth.client, auth.user.id, topic);
-  const reply = await chatReply(context, messages, auth.user.lang);
-  return NextResponse.json({ reply });
+  const lang = detectLanguage(context);
+  const reply = await chatReply(context, messages, lang);
+  return NextResponse.json({ reply, lang });
 }

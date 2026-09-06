@@ -73,11 +73,20 @@ export async function POST(
     .eq("reading_id", readingId)
     .order("created_at", { ascending: true });
 
+  const { data: classroom } = await supabase
+    .from("classrooms")
+    .select("lang")
+    .eq("id", id)
+    .maybeSingle();
+  const classroomLang =
+    classroom?.lang === "en" ? "en" : classroom?.lang === "es" ? "es" : "es";
+
   let body: {
     format?: string;
     questionTypes?: string[];
     questionCount?: number;
     extra?: string;
+    wordExplanation?: boolean;
   };
   try {
     body = await request.json();
@@ -100,6 +109,7 @@ export async function POST(
   );
   const extra =
     typeof body.extra === "string" ? body.extra.trim() : undefined;
+  const wordExplanation = body.wordExplanation === true;
 
   let lesson;
   try {
@@ -114,8 +124,8 @@ export async function POST(
         sentence: q.sentence,
         question: q.question,
       })),
-      lang: auth.user.lang,
-      requirement: { format, questionTypes, questionCount, extra },
+      lang: classroomLang,
+      requirement: { format, questionTypes, questionCount, extra, wordExplanation },
     });
   } catch (e) {
     return NextResponse.json(
