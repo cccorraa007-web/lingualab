@@ -326,7 +326,8 @@ function HelpTab() {
         />
       </HelpSection>
 
-      <HelpSection title="教学模式（教师）">
+      <HelpSection title="教学模式">
+        <p className="font-semibold text-zinc-800">教师</p>
         <HelpItem
           name="班级管理"
           desc="创建班级获得邀请码，把邀请码发给学生；审批学生的入班申请，还可指定其他教师。"
@@ -351,9 +352,8 @@ function HelpTab() {
           name="辅助备课"
           desc="进入文章的「备课模式」，勾画重点词汇、批注后，点击「辅助备课」选择格式（PPT/Word）、题型与数量，AI 据此生成可下载的教学课件。"
         />
-      </HelpSection>
 
-      <HelpSection title="教学模式（学生）">
+        <p className="pt-4 font-semibold text-zinc-800">学生</p>
         <HelpItem
           name="加入班级"
           desc="在「教学模式」里输入邀请码加入班级，选择「以学生身份」，等待教师审批通过后即可开始。"
