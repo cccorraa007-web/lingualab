@@ -14,8 +14,8 @@ const CARDS = [
   },
   {
     href: "assignments",
-    title: "发布作业",
-    desc: "发布必读文章与笔头作业，设置截止时间，查看提交与批改。",
+    title: "课后作业",
+    desc: "必读文章与笔头作业，查看待完成的任务。",
     emoji: "📝",
   },
   {
@@ -33,6 +33,7 @@ export default function ClassroomDashboardPage() {
     invite_code: string;
   } | null>(null);
   const [myRole, setMyRole] = useState("student");
+  const [pendingCount, setPendingCount] = useState(0);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -47,6 +48,19 @@ export default function ClassroomDashboardPage() {
         setMyRole(d.my_role);
       })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
+
+    apiFetch(`/api/classrooms/${params.id}/readings`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.error) return;
+        const now = Date.now();
+        const pending = (d.readings ?? []).filter(
+          (r: { ends_at: string | null }) =>
+            !r.ends_at || new Date(r.ends_at).getTime() > now,
+        ).length;
+        setPendingCount(pending);
+      })
+      .catch(() => {});
   }, [params.id]);
 
   return (
@@ -81,8 +95,13 @@ export default function ClassroomDashboardPage() {
           <Link
             key={c.href}
             href={`/teaching/${params.id}/${c.href}`}
-            className="group rounded-2xl border border-zinc-100 bg-white p-6 text-center shadow-sm transition hover:shadow-md"
+            className="group relative rounded-2xl border border-zinc-100 bg-white p-6 text-center shadow-sm transition hover:shadow-md"
           >
+            {c.href === "assignments" && pendingCount > 0 && (
+              <span className="absolute right-3 top-3 flex h-6 min-w-6 items-center justify-center rounded-full bg-red-500 px-1.5 text-xs font-bold text-white">
+                {pendingCount}
+              </span>
+            )}
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-orange-50 text-2xl">
               {c.emoji}
             </div>

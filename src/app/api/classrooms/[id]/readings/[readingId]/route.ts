@@ -53,5 +53,19 @@ export async function GET(
     return NextResponse.json({ error: aErr.message }, { status: 500 });
   }
 
-  return NextResponse.json({ reading, annotations: annotations ?? [] });
+  const { data: questions, error: qErr } = await supabase
+    .from("reading_questions")
+    .select("*")
+    .eq("reading_id", readingId)
+    .order("created_at", { ascending: true });
+  if (qErr) {
+    return NextResponse.json({ error: qErr.message }, { status: 500 });
+  }
+
+  return NextResponse.json({
+    reading,
+    annotations: annotations ?? [],
+    questions: questions ?? [],
+    my_role: role,
+  });
 }
