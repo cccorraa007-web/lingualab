@@ -197,3 +197,31 @@ LinguaLab 的核心价值主张：**把用户读过的材料，自动转化成�
 | 数据隔离 | Supabase RLS + 应用层过滤 | 双保险，防止越权访问 |
 | AI 输出约束 | 结构化 JSON + 受控词表 | 保证可解析、标签可控 |
 | 部署 | cpolar 内网穿透（国内测试） | 免备案、免手机验证、国内可达 |
+
+---
+
+## 七、教学模式「笔头作业」数据层（建设中）
+
+> 本阶段只做「收发作业 + 留档」的数据底座与附件存储、OCR 骨架，前端与 API 后续实现。
+
+### 7.1 数据模型（`db/migrate_assignments.sql`）
+
+三张表，沿用班级共享表「应用层隔离」的既有架构（RLS 关闭，由 API 按成员关系鉴权）：
+
+- `classroom_assignments`：作业本体（题目 + 截止时间），`created_by` 记录发布教师。
+- `assignment_recipients`：**发布对象快照**——发布时把当时班级成员固化下来，避免「发布后有人退班/加人」影响未交名单的准确性。
+- `assignment_submissions`：学生提交，`content`（文字）+ `media_paths`（附件 Storage 路径数组）+ `ocr_text`（图片识别结果缓存）+ 人工批改字段（`feedback`/`score`/`graded_by`）。
+
+**解决的几个问题**：
+1. 交接文档里附件字段是单 `media_url`，实际改为 `media_paths text[]`，支持一次提交多张图片/音频/视频。
+2. 用 `unique(assignment_id, user_id)` 保证一人一交，重复提交走更新。
+3. `assignment_submission_has_content` 约束「文字与附件至少其一」，`assignment_score_valid` 约束「0 ≤ 分数 ≤ 满分」。
+4. 加 `set_updated_at()` 触发器，教师批改后自动刷新 `updated_at`。
+
+### 7.2 附件存储（`db/migrate_storage_assignments.sql`）
+
+新建**私有桶** `assignment-files`（`public = false`）：学生提交属于班级内私密数据，不走公开 URL。限单文件 25MB、白名单 MIME（图片/音频/视频/PDF）。两条存储策略仅允许登录用户上传/读取本桶，班级级隔离仍放在应用层（与班级共享表一致）。
+
+### 7.3 图片提取文字（OCR，`src/lib/aliyun/ocr.ts`）
+
+选用**阿里云 OCR**（负责人已有阿里云账号，与语音 NLS 同用一套 AccessKey，账务统一）。封装 `recognizeText(imageBase64)`，签名逻辑复用 `speech.ts` 的 RPC HMAC-SHA1 方式。**待办**：上线前到阿里云控制台核对实际开通的产品线 endpoint 与请求字段（`img`/`body`/`url`）。
