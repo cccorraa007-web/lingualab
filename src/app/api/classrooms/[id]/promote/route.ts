@@ -35,7 +35,7 @@ export async function POST(
     return NextResponse.json({ error: "缺少 member_id" }, { status: 400 });
   }
 
-  const role = body.role === "teacher" ? "teacher" : "leader";
+  const role = "teacher";
 
   const { error } = await supabase
     .from("classroom_members")

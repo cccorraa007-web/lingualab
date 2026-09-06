@@ -53,5 +53,46 @@ export async function GET(
     return NextResponse.json({ error: aErr.message }, { status: 500 });
   }
 
-  return NextResponse.json({ reading, annotations: annotations ?? [] });
+  const { data: existingMaterial } = await supabase
+    .from("materials")
+    .select("id")
+    .eq("reading_id", readingId)
+    .eq("user_id", auth.user.id)
+    .maybeSingle();
+  const addedToCorpus = Boolean(existingMaterial);
+
+  const { data: questions, error: qErr } = await supabase
+    .from("reading_questions")
+    .select("*")
+    .eq("reading_id", readingId)
+    .order("created_at", { ascending: true });
+  if (qErr) {
+    return NextResponse.json({ error: qErr.message }, { status: 500 });
+  }
+
+  const questionIds = (questions ?? []).map((q) => q.id);
+  let answers: unknown[] = [];
+  if (questionIds.length > 0) {
+    let q = supabase
+      .from("reading_answers")
+      .select("*")
+      .in("question_id", questionIds);
+    if (role !== "teacher") {
+      q = q.eq("user_id", auth.user.id);
+    }
+    const { data: ans, error: ansErr } = await q;
+    if (ansErr) {
+      return NextResponse.json({ error: ansErr.message }, { status: 500 });
+    }
+    answers = ans ?? [];
+  }
+
+  return NextResponse.json({
+    reading,
+    annotations: annotations ?? [],
+    questions: questions ?? [],
+    answers,
+    added_to_corpus: addedToCorpus,
+    my_role: role,
+  });
 }

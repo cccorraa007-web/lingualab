@@ -5,8 +5,6 @@ import {
   apiFetch,
   useUserInfo,
   updateUsername,
-  updateEmail,
-  updatePassword,
   uploadAvatar,
   updateAvatarUrl,
 } from "@/lib/auth";
@@ -63,8 +61,6 @@ function SettingsTab({
   avatarUrl: string;
 }) {
   const [nameInput, setNameInput] = useState(username);
-  const [emailInput, setEmailInput] = useState(email);
-  const [pwdInput, setPwdInput] = useState("");
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -83,25 +79,6 @@ function SettingsTab({
   async function saveUsername() {
     const e = await updateUsername(nameInput);
     flash(e ?? "用户名已更新");
-  }
-
-  async function saveEmail() {
-    const e = await updateEmail(emailInput);
-    flash(e ?? "修改邮箱已提交，请到新邮箱确认");
-  }
-
-  async function savePassword() {
-    if (pwdInput.length < 6) {
-      flash("密码至少 6 位", true);
-      return;
-    }
-    const e = await updatePassword(pwdInput);
-    if (e) {
-      flash(e, true);
-    } else {
-      setPwdInput("");
-      flash("密码已更新");
-    }
   }
 
   async function onPickAvatar(f: File | undefined) {
@@ -181,18 +158,12 @@ function SettingsTab({
         <h2 className="text-sm font-semibold text-zinc-700">邮箱</h2>
         <div className="mt-3 flex gap-2">
           <input
-            value={emailInput}
-            onChange={(e) => setEmailInput(e.target.value)}
-            className="flex-1 rounded-lg border border-zinc-200 px-3 py-2 text-sm"
+            value={email}
+            readOnly
+            className="flex-1 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-500"
           />
-          <button
-            onClick={saveEmail}
-            className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700"
-          >
-            修改
-          </button>
         </div>
-        <p className="mt-2 text-xs text-zinc-400">修改邮箱后需到新邮箱确认。</p>
+        <p className="mt-2 text-xs text-zinc-400">邮箱作为登录账号，暂不支持修改。</p>
       </section>
 
       {/* 密码 */}
@@ -201,18 +172,12 @@ function SettingsTab({
         <div className="mt-3 flex gap-2">
           <input
             type="password"
-            value={pwdInput}
-            onChange={(e) => setPwdInput(e.target.value)}
-            placeholder="输入新密码（至少 6 位）"
-            className="flex-1 rounded-lg border border-zinc-200 px-3 py-2 text-sm"
+            value="password"
+            readOnly
+            className="flex-1 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-500"
           />
-          <button
-            onClick={savePassword}
-            className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700"
-          >
-            修改
-          </button>
         </div>
+        <p className="mt-2 text-xs text-zinc-400">密码已设置，暂不支持修改。</p>
       </section>
     </div>
   );

@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { signIn, signUp, setTargetLang } from "@/lib/auth";
-import { LANGS, PRODUCT_NAME, type TargetLang } from "@/lib/language";
+import { signIn, signUp } from "@/lib/auth";
+import { PRODUCT_NAME } from "@/lib/language";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -11,7 +11,6 @@ export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [lang, setLang] = useState<TargetLang>("es");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(false);
@@ -40,7 +39,6 @@ export default function LoginPage() {
         const { error: err, needsConfirm } = await signUp(
           email.trim(),
           password,
-          lang,
           username,
         );
         setLoading(false);
@@ -62,7 +60,6 @@ export default function LoginPage() {
         setError(err);
         return;
       }
-      await setTargetLang(lang);
       redirectAfterLogin();
     } catch (e) {
       setLoading(false);
@@ -83,27 +80,6 @@ export default function LoginPage() {
 
       <div className="rounded-2xl border border-zinc-100 bg-white p-6">
         <div className="space-y-4">
-          <div>
-            <label className="text-xs font-semibold text-zinc-600">
-              我要学
-            </label>
-            <div className="mt-1 grid grid-cols-2 gap-2">
-              {(Object.keys(LANGS) as TargetLang[]).map((k) => (
-                <button
-                  key={k}
-                  type="button"
-                  onClick={() => setLang(k)}
-                  className={`rounded-lg border px-3 py-2 text-sm font-medium transition ${
-                    lang === k
-                      ? "border-orange-400 bg-orange-50 text-orange-700"
-                      : "border-zinc-200 text-zinc-600 hover:bg-zinc-50"
-                  }`}
-                >
-                  {LANGS[k].label}
-                </button>
-              ))}
-            </div>
-          </div>
           {mode === "signup" && (
             <div>
               <label className="text-xs font-semibold text-zinc-600">用户名</label>

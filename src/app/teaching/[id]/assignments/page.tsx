@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { apiFetch } from "@/lib/auth";
+import { langMeta } from "@/lib/language";
 
 interface Reading {
   id: string;
@@ -12,6 +13,9 @@ interface Reading {
   starts_at: string;
   ends_at: string | null;
   created_at: string;
+  question_count?: number;
+  answered_count?: number;
+  done?: boolean;
 }
 
 interface Material {
@@ -36,7 +40,8 @@ function nowTime(): string {
 
 export default function ClassroomAssignmentsPage() {
   const params = useParams<{ id: string }>();
-  const [myRole, setMyRole] = useState<"teacher" | "leader" | "student">("student");
+  const [myRole, setMyRole] = useState<"teacher" | "student">("student");
+  const [classroomLang, setClassroomLang] = useState<string>("");
   const [readings, setReadings] = useState<Reading[]>([]);
   const [materials, setMaterials] = useState<Material[]>([]);
   const [error, setError] = useState("");
@@ -60,7 +65,10 @@ export default function ClassroomAssignmentsPage() {
     apiFetch(`/api/classrooms/${params.id}`)
       .then((r) => r.json())
       .then((d) => {
-        if (!d.error) setMyRole(d.my_role);
+        if (!d.error) {
+          setMyRole(d.my_role);
+          setClassroomLang(d.classroom?.lang ?? "");
+        }
       })
       .catch(() => {});
 
@@ -142,7 +150,7 @@ export default function ClassroomAssignmentsPage() {
       </Link>
 
       <h1 className="mt-3 text-3xl font-bold tracking-tight text-zinc-900">
-        发布作业
+        {myRole === "teacher" ? "布置作业" : "课后作业"}
       </h1>
 
       {error && (
@@ -154,8 +162,15 @@ export default function ClassroomAssignmentsPage() {
       {/* 必读文章 */}
       <section className="mt-8">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-zinc-900">必读文章</h2>
-          {(myRole === "teacher" || myRole === "leader") && (
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-semibold text-zinc-900">必读文章</h2>
+            {(classroomLang === "es" || classroomLang === "en") && (
+              <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+                {langMeta(classroomLang as "es" | "en").label}
+              </span>
+            )}
+          </div>
+          {myRole === "teacher" && (
             <button
               onClick={() => setShowPublish(!showPublish)}
               className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700"
@@ -165,7 +180,13 @@ export default function ClassroomAssignmentsPage() {
           )}
         </div>
 
-        {(myRole === "teacher" || myRole === "leader") && showPublish && (
+        {myRole === "teacher" && (
+          <p className="mt-2 text-xs text-zinc-400">
+            发布后，点进文章可「划线出题」和「勾画批注」，用于准备备课材料。
+          </p>
+        )}
+
+        {myRole === "teacher" && showPublish && (
           <div className="mt-3 rounded-xl border border-orange-200 bg-orange-50/40 p-4">
             <div className="flex items-center gap-2">
               <select
@@ -247,26 +268,63 @@ export default function ClassroomAssignmentsPage() {
           ) : (
             readings.map((r) => {
               const s = readingStatus(r);
+              const isActive = s.text === "进行中";
+              const hasQuestions = (r.question_count ?? 0) > 0;
+              const pending = myRole === "student" && isActive && !r.done;
               return (
-                <Link
+                <div
                   key={r.id}
-                  href={`/teaching/${params.id}/readings/${r.id}`}
-                  className="flex items-center justify-between rounded-xl border border-zinc-100 bg-white p-4 transition hover:shadow-md"
+                  className="group relative rounded-xl border border-zinc-100 bg-white transition hover:shadow-md"
                 >
-                  <div className="min-w-0">
-                    <p className="font-medium text-zinc-900">{r.title}</p>
-                    <p className="mt-1 text-xs text-zinc-400">
-                      {r.ends_at
-                        ? `截止 ${new Date(r.ends_at).toLocaleString("zh-CN")}`
-                        : "长期有效"}
-                    </p>
-                  </div>
-                  <span
-                    className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${s.cls}`}
+                  <Link
+                    href={`/teaching/${params.id}/readings/${r.id}`}
+                    className="flex items-center justify-between p-4"
                   >
-                    {s.text}
-                  </span>
-                </Link>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="truncate font-medium text-zinc-900">
+                          {r.title}
+                        </p>
+                        {pending && (
+                          <span className="h-2 w-2 shrink-0 rounded-full bg-red-500" />
+                        )}
+                      </div>
+                      <p className="mt-1 text-xs text-zinc-400">
+                        {r.ends_at
+                          ? `截止 ${new Date(r.ends_at).toLocaleString("zh-CN")}`
+                          : "长期有效"}
+                      </p>
+                    </div>
+                    <div className="ml-4 flex shrink-0 items-center gap-2">
+                      {myRole === "student" && isActive && hasQuestions && (
+                        <span
+                          className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                            r.done
+                              ? "bg-emerald-100 text-emerald-700"
+                              : "bg-red-100 text-red-600"
+                          }`}
+                        >
+                          {r.done
+                            ? `已完成 ${r.answered_count}/${r.question_count}`
+                            : `待完成 ${r.answered_count}/${r.question_count}`}
+                        </span>
+                      )}
+                      <span
+                        className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${s.cls}`}
+                      >
+                        {s.text}
+                      </span>
+                    </div>
+                  </Link>
+                  {myRole === "teacher" && (
+                    <Link
+                      href={`/teaching/${params.id}/readings/${r.id}?prep=1`}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg bg-orange-600 px-3 py-1.5 text-xs font-semibold text-white opacity-0 shadow transition group-hover:opacity-100"
+                    >
+                      进入备课
+                    </Link>
+                  )}
+                </div>
               );
             })
           )}

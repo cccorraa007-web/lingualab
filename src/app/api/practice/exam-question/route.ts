@@ -10,7 +10,7 @@ export async function POST(request: Request) {
   if (!auth) return unauthorized();
   const supabase = auth.client;
 
-  let body: { type?: string };
+  let body: { type?: string; lang?: string };
   try {
     body = await request.json();
   } catch {
@@ -18,22 +18,34 @@ export async function POST(request: Request) {
   }
 
   const type = body.type || "t1";
+  const lang = body.lang === "en" ? "en" : "es";
 
-  const { data: prompts } = await supabase
-    .from("corpus_cards")
-    .select("content")
+  const { data: materials } = await supabase
+    .from("materials")
+    .select("id")
     .eq("user_id", auth.user.id)
-    .eq("status", "saved")
-    .eq("category", "prompt");
+    .eq("lang", lang);
+  const materialIds = (materials ?? []).map((m) => m.id);
 
-  const context = (prompts ?? [])
-    .map((p) => p.content)
-    .join("\n");
+  let prompts: { content: string }[] = [];
+  if (materialIds.length > 0) {
+    const { data } = await supabase
+      .from("corpus_cards")
+      .select("content")
+      .eq("user_id", auth.user.id)
+      .eq("status", "saved")
+      .eq("category", "prompt")
+      .in("material_id", materialIds);
+    prompts = data ?? [];
+  }
+
+  const context = prompts.map((p) => p.content).join("\n");
 
   try {
-    const content = await generateExamQuestion(type, context, auth.user.lang);
+    const content = await generateExamQuestion(type, context, lang);
     return NextResponse.json({
       question: { content, zh: null, extra: {} },
+      lang,
     });
   } catch (e) {
     return NextResponse.json(

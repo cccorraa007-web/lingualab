@@ -6,6 +6,13 @@ const STRONG = /\b(GPL|AGPL|SSPL)\b/i;
 // 弱传染性（仅限文件/库级别）—— 命中仅告警，需人工确认
 const WEAK = /\b(LGPL|MPL|EPL|CC-BY-SA|EUPL|CPL|OSL|CDDL)\b/i;
 
+// 白名单：双许可（MIT OR GPL-*）的包，我们明确选择 MIT 分支，不触发 Copyleft。
+// 命中 STRONG 但属于双许可且已确认选择宽松分支的，从这里剔除。
+const STRONG_ALLOWLIST = new Set([
+  // jszip: "MIT OR GPL-3.0-or-later"，作为 pptxgenjs/docx 的压缩依赖，选择 MIT 分支
+  "jszip",
+]);
+
 const results = new Map();
 
 function readLicense(pkg) {
@@ -48,6 +55,8 @@ const strong = [];
 const weak = [];
 const unknown = [];
 for (const [id, lic] of results) {
+  const name = id.replace(/@[^@]*$/, "");
+  if (STRONG_ALLOWLIST.has(name)) continue;
   if (STRONG.test(lic)) strong.push(`${id} => ${lic}`);
   else if (WEAK.test(lic)) weak.push(`${id} => ${lic}`);
   else if (lic === "UNKNOWN") unknown.push(id);

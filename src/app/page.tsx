@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
-import { langMeta, parseTargetLang, PRODUCT_NAME } from "@/lib/language";
+import { PRODUCT_NAME } from "@/lib/language";
 
 const selfStudyFeatures = [
   { title: "语料库", desc: "导入读过的材料，AI 自动分类、提取关键词和地道表达，建成专属语料库。" },
@@ -12,7 +12,7 @@ const selfStudyFeatures = [
 ];
 
 const teachingFeatures = [
-  { title: "班级管理", desc: "创建班级、邀请码加入、教师审批，支持多名教师与班委。" },
+  { title: "班级管理", desc: "创建班级、邀请码加入、教师审批，支持多名教师。" },
   { title: "必读文章", desc: "教师发布必读文章并设置起止时间，学生按时间窗口阅读。" },
   { title: "阅读勾画与批注", desc: "学生在原文上勾画词汇、批注句子，沉淀个人阅读记录。" },
   { title: "AI 口语与学情", desc: "基于勾画批注生成口语问题，AI 生成学生档案与班级分析（建设中）。" },
@@ -20,9 +20,6 @@ const teachingFeatures = [
 
 export default function Home() {
   const { user } = useAuth();
-  const lang = user ? parseTargetLang(user.user_metadata?.target_lang) : "en";
-  const m = langMeta(lang);
-  const word = user ? m.short : "语言";
 
   return (
     <div className="flex flex-col">
@@ -33,11 +30,11 @@ export default function Home() {
             {PRODUCT_NAME}
           </p>
           <h1 className="mt-3 text-5xl font-bold tracking-tight text-zinc-900 sm:text-6xl">
-            {m.brand}
+            {PRODUCT_NAME}
           </h1>
           <p className="mx-auto mt-4 max-w-2xl text-lg font-medium text-zinc-700">
-            把读过的{word}，
-            <span className="text-orange-600">变成能说的{word}</span>
+            把读过的外语，
+            <span className="text-orange-600">变成能说的外语</span>
           </p>
           <p className="mx-auto mt-3 max-w-2xl text-base leading-8 text-zinc-600">
             面向中文母语者的「输入 → 输出」训练平台，支持自主学习与课堂教学两种模式。

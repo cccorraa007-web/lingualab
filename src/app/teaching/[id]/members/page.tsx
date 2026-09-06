@@ -8,19 +8,18 @@ import { apiFetch } from "@/lib/auth";
 interface Member {
   id: string;
   email: string | null;
-  role: "teacher" | "leader" | "student";
+  role: "teacher" | "student";
   status: string;
 }
 
 const ROLE_LABEL: Record<string, string> = {
   teacher: "教师",
-  leader: "班委",
   student: "学生",
 };
 
 export default function ClassroomMembersPage() {
   const params = useParams<{ id: string }>();
-  const [myRole, setMyRole] = useState<"teacher" | "leader" | "student">("student");
+  const [myRole, setMyRole] = useState<"teacher" | "student">("student");
   const [members, setMembers] = useState<Member[]>([]);
   const [pending, setPending] = useState<Member[]>([]);
   const [error, setError] = useState("");
@@ -59,11 +58,11 @@ export default function ClassroomMembersPage() {
     else load();
   }
 
-  async function promote(memberId: string, role: "leader" | "teacher") {
+  async function promote(memberId: string) {
     const res = await apiFetch(`/api/classrooms/${params.id}/promote`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ member_id: memberId, role }),
+      body: JSON.stringify({ member_id: memberId, role: "teacher" }),
     });
     const data = await res.json();
     if (!res.ok) setError(data.error || "操作失败");
@@ -89,7 +88,7 @@ export default function ClassroomMembersPage() {
         </div>
       )}
 
-      {(myRole === "teacher" || myRole === "leader") && pending.length > 0 && (
+      {myRole === "teacher" && pending.length > 0 && (
         <section className="mt-8">
           <h2 className="text-lg font-semibold text-zinc-900">待审批申请</h2>
           <div className="mt-3 space-y-2">
@@ -138,9 +137,7 @@ export default function ClassroomMembersPage() {
                   className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
                     m.role === "teacher"
                       ? "bg-orange-100 text-orange-700"
-                      : m.role === "leader"
-                        ? "bg-emerald-100 text-emerald-700"
-                        : "bg-zinc-100 text-zinc-600"
+                      : "bg-zinc-100 text-zinc-600"
                   }`}
                 >
                   {ROLE_LABEL[m.role] ?? m.role}
@@ -148,20 +145,12 @@ export default function ClassroomMembersPage() {
                 <p className="text-sm font-medium text-zinc-800">{m.email}</p>
               </div>
               {myRole === "teacher" && m.role === "student" && (
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => promote(m.id, "leader")}
-                    className="text-xs font-medium text-emerald-700 hover:underline"
-                  >
-                    设为班委
-                  </button>
-                  <button
-                    onClick={() => promote(m.id, "teacher")}
-                    className="text-xs font-medium text-orange-700 hover:underline"
-                  >
-                    设为教师
-                  </button>
-                </div>
+                <button
+                  onClick={() => promote(m.id)}
+                  className="text-xs font-medium text-orange-700 hover:underline"
+                >
+                  设为教师
+                </button>
               )}
             </div>
             ))

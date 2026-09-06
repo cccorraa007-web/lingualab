@@ -5,8 +5,8 @@ import type { FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { topicName, resolveTopicSlug } from "@/lib/topics";
-import { apiFetch, useTargetLang } from "@/lib/auth";
-import { langMeta } from "@/lib/language";
+import { apiFetch } from "@/lib/auth";
+import { langMeta, type TargetLang } from "@/lib/language";
 
 interface Material {
   id: string;
@@ -14,13 +14,14 @@ interface Material {
   type: string;
   tags: string[];
   cefr_level: string | null;
+  lang: string;
   created_at: string;
 }
 
 export default function CorpusPage() {
   const router = useRouter();
-  const lang = useTargetLang();
   const [search, setSearch] = useState("");
+  const [langFilter, setLangFilter] = useState<TargetLang | "all">("all");
   const [materials, setMaterials] = useState<Material[]>([]);
   const [error, setError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
@@ -37,12 +38,14 @@ export default function CorpusPage() {
     let cancelled = false;
     const t = setTimeout(() => {
       let url = "/api/materials";
+      const params: string[] = [];
+      if (langFilter !== "all") params.push(`lang=${langFilter}`);
       if (search.trim()) {
         const tag = resolveTopicSlug(search);
-        url = tag
-          ? `/api/materials?tag=${tag}`
-          : `/api/materials?q=${encodeURIComponent(search.trim())}`;
+        if (tag) params.push(`tag=${tag}`);
+        else params.push(`q=${encodeURIComponent(search.trim())}`);
       }
+      if (params.length > 0) url += `?${params.join("&")}`;
       apiFetch(url)
         .then((r) => r.json())
         .then((data) => {
@@ -58,7 +61,7 @@ export default function CorpusPage() {
       cancelled = true;
       clearTimeout(t);
     };
-  }, [search, reloadKey]);
+  }, [search, langFilter, reloadKey]);
 
   async function handleImport(e: FormEvent) {
     e.preventDefault();
@@ -151,7 +154,7 @@ export default function CorpusPage() {
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder={`在这里粘贴${langMeta(lang).label}文章（至少 50 个字符）…`}
+            placeholder="在这里粘贴文章（至少 50 个字符，语言自动识别）…"
             rows={6}
             className="w-full rounded-xl border border-zinc-200 bg-white p-4 text-zinc-900 placeholder-zinc-400 outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
           />
@@ -169,11 +172,26 @@ export default function CorpusPage() {
       )}
 
       <div className="mt-6">
+        <div className="flex gap-1.5">
+          {(["all", "es", "en"] as const).map((k) => (
+            <button
+              key={k}
+              onClick={() => setLangFilter(k)}
+              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                langFilter === k
+                  ? "bg-orange-600 text-white"
+                  : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
+              }`}
+            >
+              {k === "all" ? "全部" : langMeta(k).label}
+            </button>
+          ))}
+        </div>
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="搜索标签（如「数字经济」）或文章标题…"
-          className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
+          className="mt-3 w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
         />
       </div>
 
@@ -235,6 +253,11 @@ export default function CorpusPage() {
                     {m.cefr_level && (
                       <span className="rounded-full border border-zinc-200 px-2 py-0.5 text-xs text-zinc-500">
                         {m.cefr_level}
+                      </span>
+                    )}
+                    {(m.lang === "es" || m.lang === "en") && (
+                      <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+                        {langMeta(m.lang as TargetLang).label}
                       </span>
                     )}
                   </div>

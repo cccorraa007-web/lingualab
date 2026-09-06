@@ -118,10 +118,74 @@ LinguaLab 的核心价值主张：**把用户读过的材料，自动转化成�
 - 复用自学模式语料库原文阅读的「选中文字 → 高亮/批注」交互：前端对原文做大小写不敏感的定位渲染（`renderParagraph`），将批注高亮叠回正文。
 - 权限：任何班级成员均可勾画/批注；只能删除自己的批注。
 
-### 4.5 规划中的教学功能
+### 4.5 教师划线出题（已实现）
+
+**设计**：教师/班委进入必读文章后，可选中原文句子**添加题目**，题目以卡片形式列在原文下方，全班共享（后续学生据此作答）。
+
+**技术方法**：
+- 数据表 `reading_questions`（`reading_id` + `sentence` + `question` + `created_by`），班级共享。
+- 前端在文字选中工具栏中，对教师/班委额外显示「添加题目」入口；题目关联的句子在原文中用橙色下划线标出。
+- 班级仪表盘上「课后作业」卡片显示**待完成数量**（未截止的必读文章数）。
+
+### 4.6 课后作业：作答、批改与加入资料库（已实现）
+
+**设计**：学生阅读必读文章后，可把文章**加入个人资料库**（复用 AI 提取 + 卡片勾选），并**回答老师划线的题目**；答案存入学生档案，教师可查看作答、**批改留言**，学生端看到「教师批注」。
+
+**技术方法**：
+- 数据表 `reading_answers`（`question_id` + `user_id` + `answer` + `feedback` + `graded_at`），一名学生一题一条（`unique(question_id, user_id)`）。
+- 阅读详情接口按角色返回答案：学生只看到自己的，教师/班委看到全班作答（含邮箱）。
+- 「加入我的资料库」复用自学模式 `/api/materials`（AI 提取 → 生成草稿卡片 → 跳转 `corpus/review` 勾选）。
+- 必读文章阅读页**不提供全文翻译**（与自学模式区分），但保留高亮与句子批注。
+
+### 4.7 通知系统与防重复加入资料库（已实现）
+
+**设计**：学生提交必读文章作答后，教师收到「某学生提交了《某文章》的作答」通知；教师批改后，学生收到「老师批改了你的《某文章》作答」通知。同时，学生把必读文章加入资料库后，阅读页显示「已加入资料库」，避免重复加入。
+
+**技术方法**：
+- 数据表 `notifications`（`user_id` + `type`(`submission`/`feedback`) + `classroom_id` + `reading_id` + `title` + `read`），按用户隔离。
+- `src/lib/notifications.ts` 提供 `notifyTeachers`（查班级教师批量写入）与 `notifyStudent`（写给学生）。
+- 通知触发点：学生作答路由（`answer/route.ts`）→ `notifyTeachers`；教师批改路由（`feedback/route.ts`）→ `notifyStudent`。
+- 通知 API：`GET /api/notifications`（列表 + 未读数）、`POST /api/notifications`（全部已读）、`POST /api/notifications/[id]/read`（单条已读）。
+- 前端：`Navbar` 增加铃铛 + 未读红点；`/notifications` 通知列表页，点击跳转到对应阅读页并标记已读。
+- 防重复：`materials` 加 `reading_id` 列标记来源；阅读详情接口返回 `added_to_corpus`，前端据此把「加入我的资料库」按钮换成「已加入资料库」。
+
+### 4.8 辅助备课：AI 生成教学课件（已实现）
+
+**设计**：教师把必读文章作为备课素材——勾画的词汇/批注是**私有的备课依据**（学生不可见），划线的题目**发布给学生**。教师进入「备课模式」后，选择交付格式（PPT/Word）、题型与数量，AI 依据原文 + 教师标注生成教学课件，以可下载文件交付。
+
+**技术方法**：
+- 入口：教师视角在「布置作业」列表**鼠标悬浮**到某篇文章时显示「进入备课」按钮，跳转阅读页的 `?prep=1` 备课模式（不显示学生作答，只聚焦备课）。
+- 数据复用：`reading_annotations`（教师本人勾画/批注）作为生词与教学重点；`reading_questions`（已发布题目）作为练习参考，一并传入 AI。
+- AI 生成 `src/lib/lesson/content.ts`：DeepSeek 输出统一 JSON（`title`/`objectives`/`vocabulary`/`outline`/`exercises`），题型限定 `blank/choice/truefalse/qa`。
+- 文件生成 `src/lib/lesson/build.ts`：`pptxgenjs` 生成 `.pptx`、`docx` 生成 `.docx`，均输出 Buffer 后以 base64 dataURL 返回，前端 `<a download>` 直接下载，免去存储与链接管理。
+- 接口 `POST /api/classrooms/[id]/readings/[readingId]/lesson`：教师鉴权 → 拉取原文/批注/题目 → 校验需求 → 生成 → 返回 `{ filename, mime, dataUrl }`。
+- 许可证：`pptxgenjs`/`docx` 均依赖 `jszip`（`MIT OR GPL-3.0`），已在 `scripts/check-licenses.mjs` 加白名单并注明选择 MIT 分支。
+
+### 4.9 单词讲解 + 语言自动识别（已实现）
+
+**设计**：备课时可勾选「需要单词讲解」，AI 为教师勾画的每个词生成**词性 + 释义 + 例句**；PPT 一词一页，Word 用字号区分（词大、释义/例句小）。同时彻底移除账户级目标语言，语言改为**按素材自动识别**。
+
+**技术方法**：
+- 单词讲解：`content.ts` 的 `vocabulary` 增加 `pos`/`example` 字段，`wordExplanation` 开关控制是否生成；`build.ts` 按开关在 PPT 逐词一页、Word 逐词分节（`TextRun` 字号/加粗/斜体区分）或维持简单生词表。
+- 语言识别：`language.ts` 新增 `detectLanguage(text)`——按西语功能词 + 重音字符 vs 英语功能词打分，导入时自动判定 es/en。
+- 数据层 `db/migrate_language.sql`：`materials.lang`、`classrooms.lang`、`mistake_book.lang` 三个语言列（默认 `es`）。
+- 语料库：`materials` 导入时存 `lang`，翻译用 `material.lang`；口语练习/润色/错题口译按内容语言判定，错题保存时记录 `lang`。
+- 教学模式：发布必读文章时检测语言并回写 `classrooms.lang`，辅助备课改用 `classrooms.lang`（不再用账户语言）。
+- 移除全局语言选择：登录/注册页、导航栏的语言切换均删除；`signUp`/`setTargetLang`/`useTargetLang` 移除；主页品牌统一为 `LinguaLab`（去掉 HablaYa/SpeakUp）。
+
+### 4.10 语言标签、导入校验与语料库分语言筛选（已实现）
+
+**设计**：导入时若非西语/英语则拦截提示「目前仅支持英语和西班牙语，其他语种仍在开发中」；导入后在语料库（CEFR 旁）和课堂（班级名旁 / 必读文章旁）显示「英语/西语」标签；语料库按语言分隔并支持筛选。
+
+**技术方法**：
+- `language.ts` 新增 `detectSupportedLanguage(text)` → `es/en/other`：非拉丁文字（CJK/西里尔/阿拉伯等）与法语/德语等其它拉丁语的重音字符判定为 `other`。
+- 导入校验：`materials` POST 与 `readings` POST 在保存前检测，`other` 直接返回 400 提示语。
+- 语料库：`materials` GET 增加 `lang` 字段与 `?lang=` 过滤；`corpus` 页新增「全部/英语/西语」筛选，并在 CEFR 等级旁显示语言标签。
+- 课堂：班级仪表盘（班级名旁）与「必读文章」标题旁显示语言标签（取自 `classrooms.lang`）。
+
+### 4.11 规划中的教学功能
 
 - **笔头作业**：教师发布作业（题目 + 截止时间），学生提交（文字/图片/音频/视频），教师查看、图片提取文字、写反馈，记录未交名单 + 评分留档。
-- AI 根据勾画/批注/主旨生成口语问题（部分教师提供）。
 - 学生档案（阅读时长、生词、答题情况、易错点），下次出题参考档案。
 - 教师端班级分析（个体指标 + 班级整体易错点）。
 - 班级排行榜（前三名激励）。
@@ -188,3 +252,31 @@ LinguaLab 的核心价值主张：**把用户读过的材料，自动转化成�
 | 数据隔离 | Supabase RLS + 应用层过滤 | 双保险，防止越权访问 |
 | AI 输出约束 | 结构化 JSON + 受控词表 | 保证可解析、标签可控 |
 | 部署 | cpolar 内网穿透（国内测试） | 免备案、免手机验证、国内可达 |
+
+---
+
+## 七、教学模式「笔头作业」数据层（建设中）
+
+> 本阶段只做「收发作业 + 留档」的数据底座与附件存储、OCR 骨架，前端与 API 后续实现。
+
+### 7.1 数据模型（`db/migrate_assignments.sql`）
+
+三张表，沿用班级共享表「应用层隔离」的既有架构（RLS 关闭，由 API 按成员关系鉴权）：
+
+- `classroom_assignments`：作业本体（题目 + 截止时间），`created_by` 记录发布教师。
+- `assignment_recipients`：**发布对象快照**——发布时把当时班级成员固化下来，避免「发布后有人退班/加人」影响未交名单的准确性。
+- `assignment_submissions`：学生提交，`content`（文字）+ `media_paths`（附件 Storage 路径数组）+ `ocr_text`（图片识别结果缓存）+ 人工批改字段（`feedback`/`score`/`graded_by`）。
+
+**解决的几个问题**：
+1. 交接文档里附件字段是单 `media_url`，实际改为 `media_paths text[]`，支持一次提交多张图片/音频/视频。
+2. 用 `unique(assignment_id, user_id)` 保证一人一交，重复提交走更新。
+3. `assignment_submission_has_content` 约束「文字与附件至少其一」，`assignment_score_valid` 约束「0 ≤ 分数 ≤ 满分」。
+4. 加 `set_updated_at()` 触发器，教师批改后自动刷新 `updated_at`。
+
+### 7.2 附件存储（`db/migrate_storage_assignments.sql`）
+
+新建**私有桶** `assignment-files`（`public = false`）：学生提交属于班级内私密数据，不走公开 URL。限单文件 25MB、白名单 MIME（图片/音频/视频/PDF）。两条存储策略仅允许登录用户上传/读取本桶，班级级隔离仍放在应用层（与班级共享表一致）。
+
+### 7.3 图片提取文字（OCR，`src/lib/aliyun/ocr.ts`）
+
+选用**阿里云 OCR**（负责人已有阿里云账号，与语音 NLS 同用一套 AccessKey，账务统一）。封装 `recognizeText(imageBase64)`，签名逻辑复用 `speech.ts` 的 RPC HMAC-SHA1 方式。**待办**：上线前到阿里云控制台核对实际开通的产品线 endpoint 与请求字段（`img`/`body`/`url`）。

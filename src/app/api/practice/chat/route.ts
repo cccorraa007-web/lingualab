@@ -11,11 +11,13 @@ async function getTopicContext(
   supabase: SupabaseClient,
   userId: string,
   topic: string,
+  lang: "es" | "en",
 ): Promise<string> {
   const { data: materials } = await supabase
     .from("materials")
     .select("id, title")
     .eq("user_id", userId)
+    .eq("lang", lang)
     .contains("tags", [topic]);
 
   if (!materials?.length) {
@@ -44,7 +46,11 @@ export async function POST(request: Request) {
   const auth = await getUserClient(request);
   if (!auth) return unauthorized();
 
-  let body: { topic?: string; history?: { role: string; content: string }[] };
+  let body: {
+    topic?: string;
+    lang?: string;
+    history?: { role: string; content: string }[];
+  };
   try {
     body = await request.json();
   } catch {
@@ -61,7 +67,8 @@ export async function POST(request: Request) {
     content: h.content,
   }));
 
-  const context = await getTopicContext(auth.client, auth.user.id, topic);
-  const reply = await chatReply(context, messages, auth.user.lang);
-  return NextResponse.json({ reply });
+  const lang = body.lang === "en" ? "en" : "es";
+  const context = await getTopicContext(auth.client, auth.user.id, topic, lang);
+  const reply = await chatReply(context, messages, lang);
+  return NextResponse.json({ reply, lang });
 }

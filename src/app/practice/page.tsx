@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { topicName } from "@/lib/topics";
-import { apiFetch, useTargetLang } from "@/lib/auth";
+import { apiFetch } from "@/lib/auth";
 import { langMeta, type TargetLang } from "@/lib/language";
 
 interface ChatMsg {
@@ -28,6 +28,16 @@ interface PromptCard {
     useful_chunks?: string[];
     sample_hint?: string;
   };
+}
+
+interface Session {
+  id: string;
+  lang: string;
+  topic: string;
+  rounds: number;
+  transcript: { role: string; content: string }[];
+  polish: PolishItem[];
+  created_at: string;
 }
 
 let ttsAudio: HTMLAudioElement | null = null;
@@ -262,8 +272,13 @@ async function startStreamingRecorder(lang: TargetLang): Promise<StreamingRecord
   };
 }
 
-function FreePractice() {
-  const lang = useTargetLang();
+function FreePractice({
+  lang,
+  onSessionSaved,
+}: {
+  lang: TargetLang;
+  onSessionSaved?: () => void;
+}) {
   const [tags, setTags] = useState<string[]>([]);
   const [topic, setTopic] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMsg[]>([]);
@@ -282,7 +297,7 @@ function FreePractice() {
   const mediaRecorderRef = useRef<StreamingRecorder | null>(null);
 
   useEffect(() => {
-    apiFetch("/api/materials")
+    apiFetch(`/api/materials?lang=${lang}`)
       .then((r) => r.json())
       .then((d) => {
         const set = new Set<string>();
@@ -292,7 +307,7 @@ function FreePractice() {
         setTags([...set]);
       })
       .catch(() => {});
-  }, []);
+  }, [lang]);
 
   async function start(t: string) {
     setTopic(t);
@@ -302,7 +317,7 @@ function FreePractice() {
       const res = await apiFetch("/api/practice/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic: t, history: [] }),
+        body: JSON.stringify({ topic: t, history: [], lang }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "失败");
@@ -326,7 +341,7 @@ function FreePractice() {
       const res = await apiFetch("/api/practice/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic, history: next }),
+        body: JSON.stringify({ topic, history: next, lang }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "失败");
@@ -346,13 +361,30 @@ function FreePractice() {
       const res = await apiFetch("/api/practice/polish", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ history: messages }),
+        body: JSON.stringify({ history: messages, lang }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "失败");
-      setPolish(data.polish ?? []);
+      const polishItems = data.polish ?? [];
+      setPolish(polishItems);
       setSelectedPolish(new Set());
       setMistakeSaved(false);
+      try {
+        await apiFetch("/api/practice/sessions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            lang,
+            topic,
+            rounds: Math.ceil(messages.length / 2),
+            transcript: messages,
+            polish: polishItems,
+          }),
+        });
+        onSessionSaved?.();
+      } catch {
+        // 保存记录失败不阻断总结展示
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -395,15 +427,19 @@ function FreePractice() {
         correct: p.correct,
         example: p.example || null,
         note: p.reason || null,
-      }));
-    if (items.length === 0) return;
+      }))
+      .filter((it) => it.wrong && it.correct);
+    if (items.length === 0) {
+      setError("所选条目没有明确的错误点（错误→正确），无法加入错题本");
+      return;
+    }
     setSavingMistakes(true);
     setError("");
     try {
       const res = await apiFetch("/api/mistakes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items }),
+        body: JSON.stringify({ items, lang }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "保存失败");
@@ -455,7 +491,7 @@ function FreePractice() {
   if (!topic) {
     return (
       <div>
-        <p className="text-zinc-600">选择一个话题，AI 将基于你的语料库内容用{langMeta(lang).short}与你对话，由浅入深引导你开口。</p>
+        <p className="text-zinc-600">选择一个话题，AI 将基于你的语料库内容与你对话，由浅入深引导你开口。</p>
         {tags.length === 0 ? (
           <div className="mt-6 rounded-2xl border border-dashed border-zinc-200 p-10 text-center text-zinc-400">
             语料库还没有任何标签，请先去「语料库」导入文章
@@ -585,7 +621,8 @@ function FreePractice() {
                         type="checkbox"
                         checked={selectedPolish.has(i)}
                         onChange={() => toggleSelect(i)}
-                        className="mt-1 h-4 w-4 accent-orange-600"
+                        disabled={!p.wrong || !p.correct}
+                        className="mt-1 h-4 w-4 accent-orange-600 disabled:opacity-40"
                       />
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
@@ -600,7 +637,13 @@ function FreePractice() {
                         </div>
                         <p className="mt-2 text-sm text-zinc-500 line-through">{p.original}</p>
                         <p className="mt-1 text-sm font-medium text-emerald-700">{p.revised}</p>
-                        {p.reason && <p className="mt-1 text-xs text-zinc-400">{p.reason}</p>}
+                        {!p.wrong || !p.correct ? (
+                          <p className="mt-1 text-xs text-zinc-400">
+                            仅扩写优化、无明确错误，无法加入错题本
+                          </p>
+                        ) : (
+                          p.reason && <p className="mt-1 text-xs text-zinc-400">{p.reason}</p>
+                        )}
                         {p.example && (
                           <div className="mt-2 rounded-lg bg-blue-50 px-3 py-2">
                             <span className="text-xs font-semibold text-blue-500">参考回答</span>
@@ -734,8 +777,7 @@ const EXAM_TYPES = [
   { key: "t5", label: "观点表达", seconds: 180 },
 ];
 
-function ExamPractice() {
-  const lang = useTargetLang();
+function ExamPractice({ lang }: { lang: TargetLang }) {
   const [question, setQuestion] = useState<PromptCard | null>(null);
   const [phase, setPhase] = useState<"idle" | "prepare" | "answer" | "done">(
     "idle",
@@ -784,7 +826,7 @@ function ExamPractice() {
       const res = await apiFetch("/api/practice/exam-question", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type }),
+        body: JSON.stringify({ type, lang }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "抽题失败");
@@ -840,7 +882,7 @@ function ExamPractice() {
       const polishRes = await apiFetch("/api/practice/polish", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ history: [{ role: "user", content: text }] }),
+        body: JSON.stringify({ history: [{ role: "user", content: text }], lang }),
       });
       const polishData = await polishRes.json();
       if (!polishRes.ok) throw new Error(polishData.error || "润色失败");
@@ -1028,6 +1070,18 @@ function ExamPractice() {
 
 export default function PracticePage() {
   const [mode, setMode] = useState<"free" | "exam">("free");
+  const [lang, setLang] = useState<TargetLang>("es");
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [sessionsReload, setSessionsReload] = useState(0);
+
+  useEffect(() => {
+    apiFetch("/api/practice/sessions")
+      .then((r) => r.json())
+      .then((d) => setSessions(d.sessions ?? []))
+      .catch(() => {});
+  }, [sessionsReload]);
+
+  const refreshSessions = () => setSessionsReload((k) => k + 1);
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
@@ -1035,32 +1089,143 @@ export default function PracticePage() {
         口语练习
       </h1>
 
-      <div className="mt-4 flex gap-2 border-b border-zinc-100 pb-3">
-        <button
-          onClick={() => setMode("free")}
-          className={`rounded-full px-5 py-2 text-sm font-medium transition ${
-            mode === "free"
-              ? "bg-orange-600 text-white"
-              : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
-          }`}
-        >
-          自由练习
-        </button>
-        <button
-          onClick={() => setMode("exam")}
-          className={`rounded-full px-5 py-2 text-sm font-medium transition ${
-            mode === "exam"
-              ? "bg-orange-600 text-white"
-              : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
-          }`}
-        >
-          考题模式
-        </button>
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <div className="flex gap-2 border-b border-zinc-100 pb-3">
+          <button
+            onClick={() => setMode("free")}
+            className={`rounded-full px-5 py-2 text-sm font-medium transition ${
+              mode === "free"
+                ? "bg-orange-600 text-white"
+                : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
+            }`}
+          >
+            自由练习
+          </button>
+          <button
+            onClick={() => setMode("exam")}
+            className={`rounded-full px-5 py-2 text-sm font-medium transition ${
+              mode === "exam"
+                ? "bg-orange-600 text-white"
+                : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
+            }`}
+          >
+            考题模式
+          </button>
+        </div>
+
+        <div className="flex items-center gap-2 border-b border-zinc-100 pb-3">
+          <span className="text-xs font-medium text-zinc-500">练习语言</span>
+          <div className="flex gap-1.5">
+            {(["es", "en"] as const).map((k) => (
+              <button
+                key={k}
+                onClick={() => setLang(k)}
+                className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
+                  lang === k
+                    ? "bg-blue-600 text-white"
+                    : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
+                }`}
+              >
+                {langMeta(k).label}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       <div className="mt-6">
-        {mode === "free" ? <FreePractice /> : <ExamPractice />}
+        {mode === "free" ? (
+          <FreePractice lang={lang} onSessionSaved={refreshSessions} />
+        ) : (
+          <ExamPractice lang={lang} />
+        )}
       </div>
+
+      <PracticeHistory sessions={sessions} />
     </div>
+  );
+}
+
+function PracticeHistory({ sessions }: { sessions: Session[] }) {
+  const [openId, setOpenId] = useState<string | null>(null);
+
+  if (sessions.length === 0) return null;
+
+  return (
+    <section className="mt-10">
+      <h2 className="text-lg font-bold tracking-tight text-zinc-900">
+        练习记录
+      </h2>
+      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {sessions.map((s) => {
+          const open = openId === s.id;
+          return (
+            <div
+              key={s.id}
+              className="rounded-2xl border border-zinc-100 bg-white p-4 shadow-sm"
+            >
+              <button
+                onClick={() => setOpenId(open ? null : s.id)}
+                className="w-full text-left"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-700">
+                    {topicName(s.topic)}
+                  </span>
+                  <span className="text-xs text-zinc-400">
+                    {langMeta((s.lang === "en" ? "en" : "es") as TargetLang).short}
+                  </span>
+                </div>
+                <p className="mt-2 text-xs text-zinc-400">
+                  {new Date(s.created_at).toLocaleString("zh-CN")}
+                </p>
+                <p className="mt-1 text-xs text-zinc-500">
+                  {s.rounds} 轮 · {s.polish.length} 条润色建议
+                </p>
+              </button>
+
+              {open && (
+                <div className="mt-3 space-y-3 border-t border-zinc-100 pt-3">
+                  {s.transcript.length > 0 && (
+                    <div className="space-y-1.5">
+                      <p className="text-xs font-semibold text-zinc-500">对话</p>
+                      {s.transcript.map((m, i) => (
+                        <p key={i} className="text-xs text-zinc-600">
+                          <span className="font-medium text-zinc-400">
+                            {m.role === "assistant" ? "考官：" : "我："}
+                          </span>
+                          {m.content}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                  {s.polish.length > 0 && (
+                    <div className="space-y-1.5">
+                      <p className="text-xs font-semibold text-zinc-500">
+                        润色建议
+                      </p>
+                      {s.polish.map((p, i) => (
+                        <div key={i} className="text-xs text-zinc-600">
+                          <span className="text-red-500 line-through">
+                            {p.wrong}
+                          </span>
+                          <span className="mx-1 text-zinc-400">→</span>
+                          <span className="text-emerald-600">{p.correct}</span>
+                          {p.reason && (
+                            <span className="ml-1 text-zinc-400">
+                              （{p.reason}）
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }
