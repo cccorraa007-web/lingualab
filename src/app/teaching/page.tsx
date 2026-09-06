@@ -3,12 +3,14 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { apiFetch } from "@/lib/auth";
+import { langMeta } from "@/lib/language";
 
 interface Classroom {
   id: string;
   name: string;
   invite_code: string;
   my_role: "teacher" | "student";
+  lang?: string;
 }
 
 export default function TeachingPage() {
@@ -204,7 +206,14 @@ export default function TeachingPage() {
             className="flex items-center justify-between rounded-xl border border-zinc-100 bg-white p-4 shadow-sm transition hover:shadow-md"
           >
             <div>
-              <p className="font-semibold text-zinc-900">{c.name}</p>
+              <div className="flex items-center gap-2">
+                <p className="font-semibold text-zinc-900">{c.name}</p>
+                {(c.lang === "es" || c.lang === "en") && (
+                  <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+                    {langMeta(c.lang).label}
+                  </span>
+                )}
+              </div>
               <p className="mt-1 text-xs text-zinc-400">
                 {c.my_role === "teacher" ? "教师" : "学生"}
               </p>
