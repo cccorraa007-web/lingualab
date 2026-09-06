@@ -9,9 +9,12 @@ export async function POST(request: Request) {
   const auth = await getUserClient(request);
   if (!auth) return unauthorized();
 
-  let body: { title?: unknown; essay?: unknown; rubric?: unknown };
+  let body: Record<string, unknown>;
   try {
-    body = await request.json();
+    const parsed: unknown = await request.json();
+    body = parsed !== null && typeof parsed === "object"
+      ? (parsed as Record<string, unknown>)
+      : {};
   } catch {
     return NextResponse.json({ error: "请求体不是合法 JSON" }, { status: 400 });
   }
