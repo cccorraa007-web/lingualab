@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { getUserClient, unauthorized } from "@/lib/supabase/server-auth";
-import { evaluateInterpreting } from "@/lib/ai/practice";
-import type { InterpretingMistake } from "@/lib/ai/practice";
+import {
+  evaluateMistakePractice,
+  type MistakePracticeItem,
+  type MistakePracticeMode,
+} from "@/lib/ai/writing";
 import { detectLanguage } from "@/lib/language";
 
 export const dynamic = "force-dynamic";
@@ -12,16 +15,22 @@ export async function POST(request: Request) {
   if (!auth) return unauthorized();
   const supabase = auth.client;
 
-  let body: { id?: string; answer?: string; prompt?: string };
+  let body: { id?: string; answer?: string; prompt?: string; mode?: string };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "请求体不是合法 JSON" }, { status: 400 });
   }
 
-  const { id, answer, prompt } = body;
+  const { id, answer, prompt, mode = "interpret" } = body;
   if (!id || !answer?.trim() || !prompt) {
     return NextResponse.json({ error: "缺少参数" }, { status: 400 });
+  }
+  if (mode !== "interpret" && mode !== "translate") {
+    return NextResponse.json({ error: "练习模式不正确" }, { status: 400 });
+  }
+  if (answer.length > 4_000 || prompt.length > 2_000) {
+    return NextResponse.json({ error: "练习内容过长" }, { status: 400 });
   }
 
   const { data: mistake, error: mErr } = await supabase
@@ -34,12 +43,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "错题不存在" }, { status: 404 });
   }
 
-  const { correct, feedback } = await evaluateInterpreting(
-    mistake as InterpretingMistake,
-    prompt,
-    answer.trim(),
-    detectLanguage(`${mistake.correct} ${mistake.wrong} ${mistake.example ?? ""}`),
-  );
+  let evaluation: { correct: boolean; feedback: string };
+  try {
+    evaluation = await evaluateMistakePractice(
+      mistake as MistakePracticeItem,
+      prompt,
+      answer.trim(),
+      mode as MistakePracticeMode,
+      detectLanguage(`${mistake.correct} ${mistake.wrong} ${mistake.example ?? ""}`),
+    );
+  } catch (evaluationError) {
+    console.error("评价错题练习失败", evaluationError);
+    return NextResponse.json(
+      { error: "AI 暂时无法评价答案，请稍后重试" },
+      { status: 502 },
+    );
+  }
+  const { correct, feedback } = evaluation;
 
   if (correct) {
     const newStreak = (mistake.correct_streak ?? 0) + 1;
