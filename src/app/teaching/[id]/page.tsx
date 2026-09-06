@@ -86,7 +86,7 @@ export default function ClassroomDashboardPage() {
       .catch(() => {});
   }, [params.id]);
 
-  const isTeacher = myRole === "teacher" || myRole === "leader";
+  const isTeacher = myRole === "teacher";
   const cards = isTeacher ? TEACHER_CARDS : STUDENT_CARDS;
 
   return (

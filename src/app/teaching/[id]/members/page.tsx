@@ -89,7 +89,7 @@ export default function ClassroomMembersPage() {
         </div>
       )}
 
-      {(myRole === "teacher" || myRole === "leader") && pending.length > 0 && (
+      {myRole === "teacher" && pending.length > 0 && (
         <section className="mt-8">
           <h2 className="text-lg font-semibold text-zinc-900">待审批申请</h2>
           <div className="mt-3 space-y-2">

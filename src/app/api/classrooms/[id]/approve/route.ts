@@ -29,7 +29,7 @@ export async function POST(
 
   const { id } = await params;
   const role = await myRole(supabase, auth.user.id, id);
-  if (role !== "teacher" && role !== "leader") {
+  if (role !== "teacher") {
     return NextResponse.json({ error: "没有审批权限" }, { status: 403 });
   }
 
