@@ -281,7 +281,7 @@ function FreePractice({ lang }: { lang: TargetLang }) {
   const mediaRecorderRef = useRef<StreamingRecorder | null>(null);
 
   useEffect(() => {
-    apiFetch("/api/materials")
+    apiFetch(`/api/materials?lang=${lang}`)
       .then((r) => r.json())
       .then((d) => {
         const set = new Set<string>();
@@ -291,7 +291,7 @@ function FreePractice({ lang }: { lang: TargetLang }) {
         setTags([...set]);
       })
       .catch(() => {});
-  }, []);
+  }, [lang]);
 
   async function start(t: string) {
     setTopic(t);
