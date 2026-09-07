@@ -496,9 +496,19 @@ export default function ReadingPage() {
       {/* 备课笔记 / 勾画与批注 */}
       {annotations.length > 0 && (
         <div className="mt-4 rounded-xl border border-zinc-100 bg-zinc-50/60 p-4">
-          <h3 className="text-sm font-semibold text-zinc-700">
-            {isTeacher ? "备课笔记" : "我的勾画与批注"}
-          </h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-zinc-700">
+              {isTeacher ? "备课笔记" : "我的勾画与批注"}
+            </h3>
+            {isTeacher && (
+              <button
+                onClick={() => setShowLesson(true)}
+                className="rounded-lg bg-orange-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-orange-700"
+              >
+                生成辅助课件
+              </button>
+            )}
+          </div>
           <ul className="mt-2 space-y-2">
             {annotations.map((a) => (
               <li
