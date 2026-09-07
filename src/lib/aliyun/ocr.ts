@@ -2,11 +2,11 @@ import crypto from "crypto";
 
 // 阿里云文字识别（OCR）：通用多语言识别。
 // 产品线「OCR API」（2021-07-07），RPC 风格签名。
-// 语言支持：lading（拉丁，含西班牙语）、eng（英语）等，接口内部自动分类判定。
+// 语言支持：lading（拉丁，含西班牙语）、eng（英语）、chn（中文），接口内部自动分类判定。
 const OCR_HOST = "ocr-api.cn-hangzhou.aliyuncs.com";
 const OCR_VERSION = "2021-07-07";
 const OCR_ACTION = "RecognizeMultiLanguage";
-const OCR_LANGUAGES = ["lading", "eng"];
+const OCR_LANGUAGES = ["lading", "eng", "chn"];
 
 function percentEncode(str: string): string {
   return encodeURIComponent(str)
@@ -48,10 +48,7 @@ export async function recognizeText(
     throw new Error("缺少图片数据");
   }
 
-  // 业务参数：body（图片 base64）与 Languages（支持语言），必须一起参与签名。
-  const bodyParam = imageBase64;
-  const languagesParam = JSON.stringify(OCR_LANGUAGES);
-
+  // 业务参数：body（图片 base64）与 Languages（数组，RPC 用 Languages.1 / Languages.2 展开），必须一起参与签名。
   const params: Record<string, string> = {
     AccessKeyId: accessKeyId,
     Action: OCR_ACTION,
@@ -61,16 +58,18 @@ export async function recognizeText(
     SignatureVersion: "1.0",
     Timestamp: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
     Version: OCR_VERSION,
-    body: bodyParam,
-    Languages: languagesParam,
+    body: imageBase64,
   };
+  OCR_LANGUAGES.forEach((lang, i) => {
+    params[`Languages.${i + 1}`] = lang;
+  });
   params.Signature = rpcSignature("POST", params, accessKeySecret);
 
-  // 系统参数 + 签名放 URL query；业务参数（body / Languages）放表单 body。
+  // 系统参数 + 签名放 URL query；业务参数（body / Languages.N）放表单 body。
   const queryParams: Record<string, string> = {};
   const form = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) {
-    if (k === "body" || k === "Languages") {
+    if (k === "body" || k.startsWith("Languages.")) {
       form.set(k, v);
     } else {
       queryParams[k] = v;
