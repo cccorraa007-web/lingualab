@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getUserClient, unauthorized } from "@/lib/supabase/server-auth";
 import { canManageAssignments, getClassroomRole } from "./_auth";
+import { notifyAssignmentStudents } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 const BUCKET = "assignment-files";
@@ -206,5 +207,6 @@ export async function POST(
       return NextResponse.json({ error: recipientError.message }, { status: 500 });
     }
   }
+  await notifyAssignmentStudents(auth.client, classroomId, assignment.id, title);
   return NextResponse.json({ assignment }, { status: 201 });
 }
