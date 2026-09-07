@@ -370,6 +370,30 @@ export default function ReadingPage() {
             : "选中原文可勾画词汇或添加批注；点进题目进行作答"}
       </p>
 
+      {/* 班级作答分析（教师） */}
+      {isTeacher && !showPrep && (
+        <div className="mt-4">
+          <Link
+            href={`/teaching/${params.id}/readings/${params.readingId}/analysis`}
+            className="block rounded-xl border border-orange-100 bg-orange-50/40 p-4 transition hover:shadow-md"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-semibold text-zinc-900">
+                  班级作答分析
+                </h3>
+                <p className="mt-1 text-xs text-zinc-500">
+                  基于学生作答、提问批注与教师批注，生成班级总体情况与每个学生的阅读情况
+                </p>
+              </div>
+              <span className="text-sm font-semibold text-orange-600">
+                进入 →
+              </span>
+            </div>
+          </Link>
+        </div>
+      )}
+
       {!isTeacher && !showPrep && (
         <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50/50 p-4">
           <p className="font-semibold text-blue-700">学习引导</p>
@@ -498,28 +522,6 @@ export default function ReadingPage() {
               </li>
             ))}
           </ul>
-        </div>
-      )}
-
-      {/* 班级作答分析（教师） */}
-      {isTeacher && !showPrep && (
-        <div className="mt-6">
-          <Link
-            href={`/teaching/${params.id}/readings/${params.readingId}/analysis`}
-            className="block rounded-xl border border-zinc-100 bg-white p-4 transition hover:shadow-md"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-semibold text-zinc-700">
-                  班级作答分析
-                </h3>
-                <p className="mt-1 text-xs text-zinc-400">
-                  基于学生作答、提问批注与教师批注，生成班级总体情况与每个学生的阅读情况
-                </p>
-              </div>
-              <span className="text-sm text-orange-600">进入 →</span>
-            </div>
-          </Link>
         </div>
       )}
 

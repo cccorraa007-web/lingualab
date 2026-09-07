@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { apiFetch } from "@/lib/auth";
@@ -19,10 +19,35 @@ export default function ReadingAnalysisPage() {
   const params = useParams<{ id: string; readingId: string }>();
 
   const [analysis, setAnalysis] = useState<ReadingAnalysis | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  async function generate() {
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await apiFetch(
+          `/api/classrooms/${params.id}/readings/${params.readingId}/analysis`,
+          { method: "POST" },
+        );
+        const d = await res.json();
+        if (!res.ok) throw new Error(d.error || "分析失败");
+        if (!cancelled) {
+          setAnalysis(d.analysis);
+          setError("");
+        }
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : "分析失败");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [params.id, params.readingId]);
+
+  async function reanalyze() {
     setLoading(true);
     setError("");
     try {
@@ -33,6 +58,7 @@ export default function ReadingAnalysisPage() {
       const d = await res.json();
       if (!res.ok) throw new Error(d.error || "分析失败");
       setAnalysis(d.analysis);
+      setError("");
     } catch (e) {
       setError(e instanceof Error ? e.message : "分析失败");
     } finally {
@@ -51,16 +77,13 @@ export default function ReadingAnalysisPage() {
 
       <div className="mt-4 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-zinc-900">班级作答分析</h1>
-        {!analysis && (
-          <button
-            onClick={generate}
-            disabled={loading}
-            className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-50"
-          >
-            {loading ? "分析中…" : "生成分析"}
-          </button>
-        )}
       </div>
+
+      {loading && (
+        <div className="mt-6 rounded-xl border border-zinc-100 bg-white p-10 text-center text-sm text-zinc-400">
+          正在分析班级作答情况…
+        </div>
+      )}
 
       {error && (
         <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
@@ -102,7 +125,7 @@ export default function ReadingAnalysisPage() {
           </section>
 
           <button
-            onClick={generate}
+            onClick={reanalyze}
             disabled={loading}
             className="rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
           >
