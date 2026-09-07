@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { topicName } from "@/lib/topics";
 import { apiFetch } from "@/lib/auth";
 import { langMeta, type TargetLang } from "@/lib/language";
@@ -37,16 +38,6 @@ interface PromptCard {
     useful_chunks?: string[];
     sample_hint?: string;
   };
-}
-
-interface Session {
-  id: string;
-  lang: string;
-  topic: string;
-  rounds: number;
-  transcript: { role: string; content: string }[];
-  polish: PolishItem[];
-  created_at: string;
 }
 
 let ttsAudio: HTMLAudioElement | null = null;
@@ -281,13 +272,7 @@ async function startStreamingRecorder(lang: TargetLang): Promise<StreamingRecord
   };
 }
 
-function FreePractice({
-  lang,
-  onSessionSaved,
-}: {
-  lang: TargetLang;
-  onSessionSaved?: () => void;
-}) {
+function FreePractice({ lang }: { lang: TargetLang }) {
   const [tags, setTags] = useState<string[]>([]);
   const [topic, setTopic] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMsg[]>([]);
@@ -390,9 +375,9 @@ function FreePractice({
             rounds: Math.ceil(messages.length / 2),
             transcript: messages,
             polish: polishItems,
+            assessment: data.assessment ?? null,
           }),
         });
-        onSessionSaved?.();
       } catch {
         // 保存记录失败不阻断总结展示
       }
@@ -808,6 +793,7 @@ function ExamPractice({ lang }: { lang: TargetLang }) {
   const [error, setError] = useState("");
   const recorderRef = useRef<StreamingRecorder | null>(null);
   const audioBlobRef = useRef<Blob | null>(null);
+  const examTypeRef = useRef<string>("");
 
   const startRecording = useCallback(async () => {
     try {
@@ -851,6 +837,7 @@ function ExamPractice({ lang }: { lang: TargetLang }) {
       setQuestion(data.question);
       setPrepareSeconds(120);
       setAnswerSeconds(seconds);
+      examTypeRef.current = EXAM_TYPES.find((t) => t.key === type)?.label ?? "";
       setPhase("prepare");
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -907,6 +894,22 @@ function ExamPractice({ lang }: { lang: TargetLang }) {
       if (!polishRes.ok) throw new Error(polishData.error || "润色失败");
       setPolish(polishData.polish ?? []);
       setAssessment(polishData.assessment ?? null);
+      try {
+        await apiFetch("/api/practice/sessions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            lang,
+            topic: examTypeRef.current || "考题模式",
+            rounds: 1,
+            transcript: [{ role: "user", content: text }],
+            polish: polishData.polish ?? [],
+            assessment: polishData.assessment ?? null,
+          }),
+        });
+      } catch {
+        // 保存记录失败不阻断展示
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -1099,23 +1102,20 @@ function ExamPractice({ lang }: { lang: TargetLang }) {
 export default function PracticePage() {
   const [mode, setMode] = useState<"free" | "exam">("free");
   const [lang, setLang] = useState<TargetLang>("es");
-  const [sessions, setSessions] = useState<Session[]>([]);
-  const [sessionsReload, setSessionsReload] = useState(0);
-
-  useEffect(() => {
-    apiFetch("/api/practice/sessions")
-      .then((r) => r.json())
-      .then((d) => setSessions(d.sessions ?? []))
-      .catch(() => {});
-  }, [sessionsReload]);
-
-  const refreshSessions = () => setSessionsReload((k) => k + 1);
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
-      <h1 className="text-3xl font-bold tracking-tight text-zinc-900">
-        口语练习
-      </h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold tracking-tight text-zinc-900">
+          口语练习
+        </h1>
+        <Link
+          href="/practice/history"
+          className="rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+        >
+          历史记录
+        </Link>
+      </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <div className="flex gap-2 border-b border-zinc-100 pb-3">
@@ -1163,98 +1163,12 @@ export default function PracticePage() {
 
       <div className="mt-6">
         {mode === "free" ? (
-          <FreePractice lang={lang} onSessionSaved={refreshSessions} />
+          <FreePractice lang={lang} />
         ) : (
           <ExamPractice lang={lang} />
         )}
       </div>
-
-      <PracticeHistory sessions={sessions} />
     </div>
-  );
-}
-
-function PracticeHistory({ sessions }: { sessions: Session[] }) {
-  const [openId, setOpenId] = useState<string | null>(null);
-
-  if (sessions.length === 0) return null;
-
-  return (
-    <section className="mt-10">
-      <h2 className="text-lg font-bold tracking-tight text-zinc-900">
-        练习记录
-      </h2>
-      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {sessions.map((s) => {
-          const open = openId === s.id;
-          return (
-            <div
-              key={s.id}
-              className="rounded-2xl border border-zinc-100 bg-white p-4 shadow-sm"
-            >
-              <button
-                onClick={() => setOpenId(open ? null : s.id)}
-                className="w-full text-left"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-700">
-                    {topicName(s.topic)}
-                  </span>
-                  <span className="text-xs text-zinc-400">
-                    {langMeta((s.lang === "en" ? "en" : "es") as TargetLang).short}
-                  </span>
-                </div>
-                <p className="mt-2 text-xs text-zinc-400">
-                  {new Date(s.created_at).toLocaleString("zh-CN")}
-                </p>
-                <p className="mt-1 text-xs text-zinc-500">
-                  {s.rounds} 轮 · {s.polish.length} 条润色建议
-                </p>
-              </button>
-
-              {open && (
-                <div className="mt-3 space-y-3 border-t border-zinc-100 pt-3">
-                  {s.transcript.length > 0 && (
-                    <div className="space-y-1.5">
-                      <p className="text-xs font-semibold text-zinc-500">对话</p>
-                      {s.transcript.map((m, i) => (
-                        <p key={i} className="text-xs text-zinc-600">
-                          <span className="font-medium text-zinc-400">
-                            {m.role === "assistant" ? "考官：" : "我："}
-                          </span>
-                          {m.content}
-                        </p>
-                      ))}
-                    </div>
-                  )}
-                  {s.polish.length > 0 && (
-                    <div className="space-y-1.5">
-                      <p className="text-xs font-semibold text-zinc-500">
-                        润色建议
-                      </p>
-                      {s.polish.map((p, i) => (
-                        <div key={i} className="text-xs text-zinc-600">
-                          <span className="text-red-500 line-through">
-                            {p.wrong}
-                          </span>
-                          <span className="mx-1 text-zinc-400">→</span>
-                          <span className="text-emerald-600">{p.correct}</span>
-                          {p.reason && (
-                            <span className="ml-1 text-zinc-400">
-                              （{p.reason}）
-                            </span>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </section>
   );
 }
 

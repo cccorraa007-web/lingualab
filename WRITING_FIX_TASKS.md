@@ -210,3 +210,26 @@
 2. 三条通知链路全部触发，且通知点击能正确跳到对应作业页面。
 3. 作业作答分析能生成并展示，且与必读文章分析数据完全隔离。
 4. `npm run lint`、`npm run build` 通过；所有迁移 SQL 放进 `db/` 新文件并执行；同步更新 `DEV_LOG.md`。
+
+---
+
+# 写作润色：新增历史记录（类比口语练习，请照抄结构）
+
+> 口语练习的历史记录已由我方实现并上线，写作润色照抄同样思路即可。可对照的文件：
+> - 保存记录：`src/app/api/practice/sessions/route.ts`（POST 存记录）——写作侧可在 `src/app/api/polish/route.ts` 里生成结果后同步写库。
+> - 记录表：`db/migrate_practice_sessions.sql` + `db/migrate_practice_sessions_assessment.sql`（`practice_sessions` 表：user_id / lang / topic / rounds / transcript / polish / assessment / created_at）。
+> - 详情接口：`src/app/api/practice/sessions/[id]/route.ts`（GET 单条）。
+> - 历史入口 + 列表 + 详情：`src/app/practice/page.tsx`（顶部「历史记录」入口）、`src/app/practice/history/page.tsx`（二级列表）、`src/app/practice/history/[id]/page.tsx`（三级详情）。
+
+## 要做什么
+1. **建表**：新建 `db/migrate_writing_sessions.sql`，字段建议 `user_id / lang / title / essay / polish jsonb / assessment jsonb / created_at`（`title` = 作文题目、`essay` = 本次作文正文，即「文稿」；`polish` = 逐条润色建议、`assessment` = 分维度评分与优缺点）。
+2. **保存**：`src/app/api/polish/route.ts` 的 POST 里，`polishWriting` 返回结果后，把 `title/essay/polish/assessment/lang` 写进该表（`user_id` 用 `auth.user.id`），失败不阻断润色展示。
+3. **入口**：`src/app/polish/page.tsx` 顶部（标题下方）加「历史记录」入口，跳 `/polish/history`。
+4. **二级列表**：新建 `src/app/polish/history/page.tsx`，调 `GET /api/writing-sessions`（或复用你自己的接口路径），每条记录标注**时间 + 作文题目 + 语言 + 评分**，点击进三级。
+5. **三级详情**：新建 `src/app/polish/history/[id]/page.tsx`，展示那次写作的**作文正文 + AI 润色建议 + 评分评估**。
+6. **接口**：新增 `GET /api/writing-sessions`（列表）和 `GET /api/writing-sessions/[id]`（详情），返回当前用户自己的记录。
+
+## 注意事项
+- 历史记录只存**当前用户自己的**数据（`user_id = auth.uid()`，表开 RLS 或接口里 `.eq("user_id", auth.user.id)`）。
+- 与口语练习历史**各自独立**，不要共用 `practice_sessions` 表。
+- 改完 `npm run lint`、`npm run build` 通过，迁移 SQL 执行后同步更新 `DEV_LOG.md`。

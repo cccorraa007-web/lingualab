@@ -366,3 +366,10 @@ LinguaLab 的核心价值主张：**把用户读过的材料，自动转化成�
 - `src/lib/ai/practice.ts`：`polishAnswers` 返回类型从 `PolishItem[]` 改为 `PolishResult`（`polish` + `assessment`）。`assessment` 含总分 `total_score/max_score`、四个维度（内容与切题 / 流利与连贯 / 语言准确 / 词汇与表达，每维 25 分）、`strengths/improvements/summary`。
 - `src/app/api/practice/polish/route.ts`：返回 `{ polish, assessment }`。
 - `src/app/practice/page.tsx`：自由练习与考题模式的总结页新增「整体评分 + 分维度 + 优缺点建议」卡片；逐条润色建议升级为「原文 / 修改后」对照卡（`TextPanel`），更贴近错题卡片样式。
+
+### 8.6 口语练习历史记录 + 错题本目标语言
+
+- 口语练习新增历史记录：自由练习 `finish()` 与考题模式 `generatePolish()` 在生成润色后同步保存记录（文稿 transcript + 润色 polish + 评估 assessment）。
+- 新增 `db/migrate_practice_sessions_assessment.sql`（`practice_sessions` 加 `assessment jsonb`）；`POST /api/practice/sessions` 支持 assessment，新增 `GET /api/practice/sessions/[id]` 详情接口。
+- 练习页顶部加「历史记录」入口（标题右侧）；新增二级列表 `/practice/history` 与三级详情 `/practice/history/[id]`，分别展示记录列表（时间/轮次/主题）与具体内容（文稿 + AI 润色建议 + 评分）。
+- 错题本：顶部新增「使用流程」卡片与「目标语言」下拉（西/英），按语言过滤错题；「练习」→「巩固练习」；删除「去口语练习」按钮，仅在无错题或该语言无错题时提示并附「去口语练习/去写作润色」链接；口译/笔译练习按目标语言出题（`/api/mistakes/practice?lang=`）。

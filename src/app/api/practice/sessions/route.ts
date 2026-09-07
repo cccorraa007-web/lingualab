@@ -33,6 +33,7 @@ export async function POST(request: Request) {
     rounds?: number;
     transcript?: unknown;
     polish?: unknown;
+    assessment?: unknown;
   };
   try {
     body = await request.json();
@@ -53,6 +54,7 @@ export async function POST(request: Request) {
       rounds: Math.max(0, Number(body.rounds) || 0),
       transcript: body.transcript,
       polish: Array.isArray(body.polish) ? body.polish : [],
+      assessment: body.assessment ?? null,
     })
     .select()
     .single();
