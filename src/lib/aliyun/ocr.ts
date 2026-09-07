@@ -1,12 +1,12 @@
 import crypto from "crypto";
 
-// 阿里云文字识别（OCR）骨架：通用文字识别。
-// 默认按「OCR API」产品线（2021-07-07）的 RPC 风格实现；
-// 若账号实际开通的是旧版「文字识别 ocr」（2019-12-30），
-// 只需改 OCR_HOST / OCR_VERSION 与请求体字段，签名逻辑通用。
+// 阿里云文字识别（OCR）：通用多语言识别。
+// 产品线「OCR API」（2021-07-07），RPC 风格签名。
+// 语言支持：lading（拉丁，含西班牙语）、eng（英语）等，接口内部自动分类判定。
 const OCR_HOST = "ocr-api.cn-hangzhou.aliyuncs.com";
 const OCR_VERSION = "2021-07-07";
-const OCR_ACTION = "RecognizeGeneral";
+const OCR_ACTION = "RecognizeMultiLanguage";
+const OCR_LANGUAGES = ["lading", "eng"];
 
 function percentEncode(str: string): string {
   return encodeURIComponent(str)
@@ -66,11 +66,11 @@ export async function recognizeText(
     .join("&");
   const url = `https://${OCR_HOST}/?${query}`;
 
-  // 通用文字识别以 Base64 提交图片；字段名（img/body/url）以控制台文档为准。
+  // 通用多语言识别：图片以 base64 放到 body 字段，Languages 指定支持语言（西语 lading / 英语 eng）。
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ img: imageBase64 }),
+    body: JSON.stringify({ body: imageBase64, Languages: OCR_LANGUAGES }),
   });
   const data = await res.json();
 
