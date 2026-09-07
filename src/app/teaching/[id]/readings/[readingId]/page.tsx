@@ -27,16 +27,6 @@ interface Question {
   question: string;
 }
 
-interface Answer {
-  id: string;
-  question_id: string;
-  user_id: string;
-  email: string | null;
-  answer: string;
-  feedback: string | null;
-  graded_at: string | null;
-}
-
 const ANNOTATION_BG: Record<string, string> = {
   yellow: "bg-yellow-200",
   red: "bg-red-200",
@@ -122,15 +112,13 @@ export default function ReadingPage() {
   const [reading, setReading] = useState<Reading | null>(null);
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
-  const [answers, setAnswers] = useState<Answer[]>([]);
+  const [answeredCount, setAnsweredCount] = useState(0);
   const [myRole, setMyRole] = useState<string>("student");
   const [toolbar, setToolbar] = useState<ToolbarState | null>(null);
   const [noteInput, setNoteInput] = useState(false);
   const [noteText, setNoteText] = useState("");
   const [questionInput, setQuestionInput] = useState(false);
   const [questionText, setQuestionText] = useState("");
-  const [answerInputs, setAnswerInputs] = useState<Record<string, string>>({});
-  const [feedbackInputs, setFeedbackInputs] = useState<Record<string, string>>({});
   const [addingToCorpus, setAddingToCorpus] = useState(false);
   const [addedToCorpus, setAddedToCorpus] = useState(false);
   const [error, setError] = useState("");
@@ -167,7 +155,7 @@ export default function ReadingPage() {
         setReading(d.reading);
         setAnnotations(d.annotations ?? []);
         setQuestions(d.questions ?? []);
-        setAnswers(d.answers ?? []);
+        setAnsweredCount((d.answers ?? []).length);
         setMyRole(d.my_role ?? "student");
         setAddedToCorpus(d.added_to_corpus ?? false);
       })
@@ -260,52 +248,6 @@ export default function ReadingPage() {
     }
   }
 
-  async function submitAnswer(questionId: string) {
-    const answer = (answerInputs[questionId] ?? "").trim();
-    if (!answer) {
-      setError("答案不能为空");
-      return;
-    }
-    try {
-      const res = await apiFetch(
-        `/api/classrooms/${params.id}/readings/${params.readingId}/questions/${questionId}/answer`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ answer }),
-        },
-      );
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "提交失败");
-      setReloadKey((k) => k + 1);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    }
-  }
-
-  async function submitFeedback(questionId: string, answerId: string) {
-    const feedback = (feedbackInputs[answerId] ?? "").trim();
-    if (!feedback) {
-      setError("反馈不能为空");
-      return;
-    }
-    try {
-      const res = await apiFetch(
-        `/api/classrooms/${params.id}/readings/${params.readingId}/questions/${questionId}/answers/${answerId}/feedback`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ feedback }),
-        },
-      );
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "提交反馈失败");
-      setReloadKey((k) => k + 1);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    }
-  }
-
   async function addToCorpus() {
     if (!reading) return;
     setAddingToCorpus(true);
@@ -381,8 +323,11 @@ export default function ReadingPage() {
 
   const isTeacher = myRole === "teacher";
   const showPrep = prepMode && isTeacher;
-  const showAnswers = isTeacher && !showPrep;
   const rules = buildRules(annotations, questions);
+  const hasNotes = annotations.length > 0;
+  const allAnswered =
+    questions.length === 0 || answeredCount >= questions.length;
+  const flowDone = hasNotes && allAnswered;
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
@@ -408,20 +353,6 @@ export default function ReadingPage() {
         <h1 className="text-3xl font-bold tracking-tight text-zinc-900">
           {reading.title}
         </h1>
-        {!isTeacher &&
-          (addedToCorpus ? (
-            <span className="rounded-lg bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700">
-              已加入资料库
-            </span>
-          ) : (
-            <button
-              onClick={addToCorpus}
-              disabled={addingToCorpus}
-              className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-50"
-            >
-              {addingToCorpus ? "AI 提取中…" : "加入我的资料库"}
-            </button>
-          ))}
         {showPrep && (
           <button
             onClick={() => setShowLesson(true)}
@@ -435,9 +366,53 @@ export default function ReadingPage() {
         {showPrep
           ? "选中原文句子可勾画、批注或添加题目；批注作为 AI 生成课件的依据"
           : isTeacher
-            ? "选中原文句子可勾画、批注或添加题目；下方可查看学生作答并批改"
-            : "选中原文文字可勾画词汇或添加句子批注；下方回答老师题目"}
+            ? "选中原文可添加题目（发布后学生作答）或加入备课笔记；点进题目查看作答与班级分析"
+            : "选中原文可勾画词汇或添加批注；点进题目进行作答"}
       </p>
+
+      {!isTeacher && !showPrep && (
+        <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50/50 p-4">
+          <p className="font-semibold text-blue-700">学习引导</p>
+          <ul className="mt-2 space-y-1.5 text-sm text-zinc-600">
+            <li className="flex items-center gap-2">
+              <span className={hasNotes ? "text-emerald-600" : "text-zinc-300"}>
+                {hasNotes ? "✓" : "○"}
+              </span>
+              勾画生词、添加批注，提出你的疑惑
+            </li>
+            <li className="flex items-center gap-2">
+              <span
+                className={allAnswered ? "text-emerald-600" : "text-zinc-300"}
+              >
+                {allAnswered ? "✓" : "○"}
+              </span>
+              回答老师的问题（已答 {answeredCount}/{questions.length}）
+            </li>
+          </ul>
+          <div className="mt-3 border-t border-blue-100 pt-3">
+            {addedToCorpus ? (
+              <p className="text-sm font-medium text-emerald-700">
+                已加入语料库，可前往「语料库」继续学习
+              </p>
+            ) : (
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  onClick={addToCorpus}
+                  disabled={addingToCorpus}
+                  className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-50"
+                >
+                  {addingToCorpus ? "AI 提取中…" : "加入语料库"}
+                </button>
+                <span className="text-xs text-zinc-400">
+                  {flowDone
+                    ? "阅读与作答已完成，建议加入语料库继续学习"
+                    : "完成勾画与作答后，即可将文章加入语料库"}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
@@ -459,126 +434,47 @@ export default function ReadingPage() {
           ))}
       </div>
 
-      {/* 题目 + 作答/批改 */}
+      {/* 题目（点击进入查看/作答） */}
       {questions.length > 0 && (
         <div className="mt-6">
           <h3 className="text-sm font-semibold text-zinc-700">
             题目（{questions.length}）
           </h3>
-          <div className="mt-3 space-y-4">
-            {questions.map((q) => {
-              const qAnswers = answers.filter((a) => a.question_id === q.id);
-              const myAnswer = qAnswers[0];
-              return (
-                <div
-                  key={q.id}
-                  className="rounded-xl border border-orange-100 bg-orange-50/40 p-4"
+          <div className="mt-3 space-y-2">
+            {questions.map((q) => (
+              <div key={q.id} className="group relative">
+                <Link
+                  href={`/teaching/${params.id}/readings/${params.readingId}/questions/${q.id}`}
+                  className="block rounded-xl border border-orange-100 bg-orange-50/40 p-4 transition hover:shadow-md"
                 >
                   <p className="text-sm text-zinc-500">{q.sentence}</p>
                   <p className="mt-1 text-base font-medium text-zinc-900">
                     {q.question}
                   </p>
-
-                  {showAnswers ? (
-                    <div className="mt-3 space-y-2">
-                      {qAnswers.length === 0 && (
-                        <p className="text-sm text-zinc-400">暂无学生作答</p>
-                      )}
-                      {qAnswers.map((a) => (
-                        <div
-                          key={a.id}
-                          className="rounded-lg border border-zinc-100 bg-white p-3"
-                        >
-                          <p className="text-xs text-zinc-400">{a.email}</p>
-                          <p className="mt-1 text-sm text-zinc-800">{a.answer}</p>
-                          {a.feedback ? (
-                            <p className="mt-2 rounded bg-emerald-50 px-2 py-1 text-sm text-emerald-700">
-                              我的批注：{a.feedback}
-                            </p>
-                          ) : (
-                            <div className="mt-2 flex gap-2">
-                              <input
-                                value={feedbackInputs[a.id] ?? ""}
-                                onChange={(e) =>
-                                  setFeedbackInputs((prev) => ({
-                                    ...prev,
-                                    [a.id]: e.target.value,
-                                  }))
-                                }
-                                placeholder="写批改留言…"
-                                className="flex-1 rounded-lg border border-zinc-200 px-3 py-1.5 text-sm"
-                              />
-                              <button
-                                onClick={() => submitFeedback(q.id, a.id)}
-                                className="rounded-lg bg-orange-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-orange-700"
-                              >
-                                提交
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  ) : !isTeacher ? (
-                    <div className="mt-3">
-                      {myAnswer ? (
-                        <div className="rounded-lg border border-zinc-100 bg-white p-3">
-                          <p className="text-xs text-zinc-400">我的答案</p>
-                          <p className="mt-1 text-sm text-zinc-800">
-                            {myAnswer.answer}
-                          </p>
-                          {myAnswer.feedback ? (
-                            <p className="mt-2 rounded bg-emerald-50 px-2 py-1 text-sm text-emerald-700">
-                              教师批注：{myAnswer.feedback}
-                            </p>
-                          ) : (
-                            <p className="mt-2 text-xs text-zinc-400">等待教师批改…</p>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="flex flex-col gap-2">
-                          <textarea
-                            value={answerInputs[q.id] ?? ""}
-                            onChange={(e) =>
-                              setAnswerInputs((prev) => ({
-                                ...prev,
-                                [q.id]: e.target.value,
-                              }))
-                            }
-                            placeholder="写下你的答案…"
-                            rows={3}
-                            className="w-full rounded-lg border border-zinc-200 p-2 text-sm outline-none focus:border-orange-400"
-                          />
-                          <button
-                            onClick={() => submitAnswer(q.id)}
-                            className="self-end rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700"
-                          >
-                            提交答案
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  ) : null}
-
-                  {isTeacher && (
-                    <button
-                      onClick={() => deleteQuestion(q.id)}
-                      className="mt-2 text-xs text-zinc-400 hover:text-red-600"
-                    >
-                      删除题目
-                    </button>
-                  )}
-                </div>
-              );
-            })}
+                  <p className="mt-2 text-xs text-orange-600">
+                    {isTeacher ? "查看学生作答 →" : "去作答 →"}
+                  </p>
+                </Link>
+                {isTeacher && (
+                  <button
+                    onClick={() => deleteQuestion(q.id)}
+                    className="absolute right-3 top-3 text-xs text-zinc-400 hover:text-red-600"
+                  >
+                    删除
+                  </button>
+                )}
+              </div>
+            ))}
           </div>
         </div>
       )}
 
-      {/* 我的勾画与批注 */}
+      {/* 备课笔记 / 勾画与批注 */}
       {annotations.length > 0 && (
         <div className="mt-4 rounded-xl border border-zinc-100 bg-zinc-50/60 p-4">
-          <h3 className="text-sm font-semibold text-zinc-700">我的勾画与批注</h3>
+          <h3 className="text-sm font-semibold text-zinc-700">
+            {isTeacher ? "备课笔记" : "我的勾画与批注"}
+          </h3>
           <ul className="mt-2 space-y-2">
             {annotations.map((a) => (
               <li
