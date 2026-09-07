@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { apiFetch } from "@/lib/auth";
-import { detectLanguage, langMeta, type TargetLang } from "@/lib/language";
+import { langMeta, type TargetLang } from "@/lib/language";
 import type { MistakePracticeMode } from "@/lib/ai/writing";
 
 interface Mistake {
@@ -25,11 +25,12 @@ interface AnswerResult {
 }
 
 export default function InterpretingPractice({
+  lang,
   onBack,
 }: {
+  lang: TargetLang;
   onBack: () => void;
 }) {
-  const [lang, setLang] = useState<TargetLang>("es");
   const [practiceMode, setPracticeMode] = useState<MistakePracticeMode | null>(null);
   const [state, setState] = useState<PracticeState | null>(null);
   const [done, setDone] = useState(false);
@@ -47,7 +48,7 @@ export default function InterpretingPractice({
     setResult(null);
     setAnswer("");
     setError("");
-    apiFetch(`/api/mistakes/practice?mode=${selectedMode}`)
+    apiFetch(`/api/mistakes/practice?mode=${selectedMode}&lang=${lang}`)
       .then(async (r) => {
         const data = await r.json();
         if (!r.ok) throw new Error(data.error || "出题失败");
@@ -61,7 +62,6 @@ export default function InterpretingPractice({
         } else {
           setDone(false);
           setState({ mistake: d.mistake, prompt: d.prompt });
-          setLang(d.lang ?? detectLanguage(d.mistake?.correct ?? ""));
         }
       })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)))

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import InterpretingPractice from "@/components/InterpretingPractice";
 import { apiFetch } from "@/lib/auth";
+import { langMeta, type TargetLang } from "@/lib/language";
 
 interface Mistake {
   id: string;
@@ -12,6 +13,7 @@ interface Mistake {
   correct: string;
   example: string | null;
   note: string | null;
+  lang: string;
   created_at: string;
 }
 
@@ -22,6 +24,8 @@ export default function MistakesPage() {
   const [reloadKey, setReloadKey] = useState(0);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Mistake | null>(null);
+  const [targetLang, setTargetLang] = useState<TargetLang>("es");
+  const [langMenuOpen, setLangMenuOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -82,36 +86,69 @@ export default function MistakesPage() {
   if (mode === "practice") {
     return (
       <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
-        <InterpretingPractice onBack={() => setMode("list")} />
+        <InterpretingPractice lang={targetLang} onBack={() => setMode("list")} />
       </div>
     );
   }
 
+  const filteredMistakes = mistakes.filter((m) => m.lang === targetLang);
+
   return (
     <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-zinc-900">
-            错题本
-          </h1>
-          <p className="mt-2 text-zinc-600">
-            提炼你的核心错误点（介词、比较结构、单词等），随时复习纠正。
-          </p>
+      <h1 className="text-3xl font-bold tracking-tight text-zinc-900">
+        错题本
+      </h1>
+      <p className="mt-2 text-zinc-600">
+        提炼你的核心错误点（介词、比较结构、单词等），随时复习纠正。
+      </p>
+
+      {/* 使用流程引导 */}
+      <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50/50 p-4">
+        <p className="text-sm font-semibold text-blue-700">使用流程</p>
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-zinc-600">
+          <span className="rounded-full bg-white px-3 py-1">1. 选择目标语言</span>
+          <span className="text-zinc-300">→</span>
+          <span className="rounded-full bg-white px-3 py-1">2. 进入巩固练习</span>
         </div>
-        <div className="flex gap-2">
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <div className="relative">
           <button
-            onClick={() => setMode("practice")}
-            className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700"
+            onClick={() => setLangMenuOpen((v) => !v)}
+            className="flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
           >
-            练习
+            目标语言：<span className="font-semibold text-orange-600">{langMeta(targetLang).label}</span>
+            <span className="text-zinc-400">▾</span>
           </button>
-          <Link
-            href="/practice"
-            className="rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
-          >
-            去口语练习
-          </Link>
+          {langMenuOpen && (
+            <div className="absolute left-0 top-full z-10 mt-1 w-40 overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-lg">
+              {(["es", "en"] as const).map((key) => (
+                <button
+                  key={key}
+                  onClick={() => {
+                    setTargetLang(key);
+                    setLangMenuOpen(false);
+                  }}
+                  className={`flex w-full items-center justify-between px-4 py-2 text-sm hover:bg-orange-50 ${
+                    targetLang === key ? "font-semibold text-orange-600" : "text-zinc-700"
+                  }`}
+                >
+                  {langMeta(key).label}
+                  {targetLang === key && <span className="text-orange-600">✓</span>}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
+
+        <button
+          onClick={() => setMode("practice")}
+          disabled={filteredMistakes.length === 0}
+          className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-50"
+        >
+          巩固练习
+        </button>
       </div>
 
       {error && (
@@ -123,11 +160,31 @@ export default function MistakesPage() {
       <div className="mt-6 space-y-3">
         {mistakes.length === 0 && (
           <div className="rounded-2xl border border-dashed border-zinc-200 p-10 text-center text-zinc-400">
-            还没有错题。在口语练习结束后，从「润色建议」里勾选加入错题本。
+            还没有错题，去口语练习或写作润色板块先练习，发现问题后再回来。
+            <div className="mt-3 flex justify-center gap-2">
+              <Link
+                href="/practice"
+                className="rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+              >
+                去口语练习
+              </Link>
+              <Link
+                href="/polish"
+                className="rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+              >
+                去写作润色
+              </Link>
+            </div>
           </div>
         )}
 
-        {mistakes.map((m) => (
+        {mistakes.length > 0 && filteredMistakes.length === 0 && (
+          <div className="rounded-2xl border border-dashed border-zinc-200 p-10 text-center text-zinc-400">
+            该语言下还没有错题，可切换目标语言查看其它错题。
+          </div>
+        )}
+
+        {filteredMistakes.map((m) => (
           <div
             key={m.id}
             className="rounded-xl border border-zinc-100 bg-white p-4 shadow-sm"

@@ -14,15 +14,20 @@ export async function GET(request: Request) {
   const auth = await getUserClient(request);
   if (!auth) return unauthorized();
   const supabase = auth.client;
-  const mode = new URL(request.url).searchParams.get("mode") ?? "interpret";
+  const url = new URL(request.url);
+  const mode = url.searchParams.get("mode") ?? "interpret";
   if (mode !== "interpret" && mode !== "translate") {
     return NextResponse.json({ error: "练习模式不正确" }, { status: 400 });
   }
+  const langParam = url.searchParams.get("lang");
+  const targetLang = langParam === "en" ? "en" : langParam === "es" ? "es" : null;
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("mistake_book")
     .select("*")
-    .eq("user_id", auth.user.id)
+    .eq("user_id", auth.user.id);
+  if (targetLang) query = query.eq("lang", targetLang);
+  const { data, error } = await query
     .order("wrong_count", { ascending: false })
     .order("created_at", { ascending: true });
 
@@ -45,9 +50,9 @@ export async function GET(request: Request) {
   }
 
   const mistake = candidates[0] as MistakePracticeItem;
-  const lang = detectLanguage(
-    `${mistake.correct} ${mistake.wrong} ${mistake.example ?? ""}`,
-  );
+  const lang =
+    targetLang ??
+    detectLanguage(`${mistake.correct} ${mistake.wrong} ${mistake.example ?? ""}`);
   try {
     const prompt = await generateMistakePrompt(
       mistake,
