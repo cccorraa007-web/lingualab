@@ -53,27 +53,50 @@
 
 ---
 
-## 问题三：笔头作业要有「二级详情页」（类似必读文章）
+## 问题三：笔头作业改成「列表 → 作业详情 → 单个学生批改」三级页面（类似必读文章）
 
 ### 现状
 - `WrittenAssignments.tsx` 把**列表 + 发布 + 每个作业的完整详情（正文、附件、学生提交、批改、OCR）全部平铺在同一个页面**，点开列表页就直接看到/修改所有提交，太乱。
 
 ### 要改什么
-改成类似「必读文章」的**列表 → 点击进入二级页面**结构：
+改成类似「必读文章」的**三级页面**结构：
 
 1. **列表页**（`src/app/teaching/[id]/assignments/page.tsx` 里的「笔头作业」区）：
-   - 每篇作业只显示一个**标题卡片**（标题 + 截止时间 + 进行中/已截止 + 教师看已交数、学生看已提交/未提交），点击跳转到详情页 `/teaching/[id]/assignments/[assignmentId]`。
+   - 每篇作业只显示一个**标题卡片**（标题 + 截止时间 + 进行中/已截止 + 教师看已交数、学生看已提交/未提交），点击跳转到作业详情页 `/teaching/[id]/assignments/[assignmentId]`。
    - 「发布笔头作业」入口保留在列表页（教师）。
 
-2. **详情页**（新建 `src/app/teaching/[id]/assignments/[assignmentId]/page.tsx`）：
+2. **作业详情页**（新建 `src/app/teaching/[id]/assignments/[assignmentId]/page.tsx`）：
    - 展示作业正文 + 教师附件链接。
-   - **教师端**：学生提交列表（点开单个学生看正文/附件/OCR）+ 批改入口（分数 + 反馈 + 保存）+ 未交名单。
+   - **教师端**：显示**学生列表，分为「已提交」和「未提交」两组**（已提交组里显示该学生是否已批改/评分情况），点击某个已提交学生 → 进入三级批改页。
    - **学生端**：提交表单（文字 + 附件）+ 查看自己的提交、评分、教师反馈。
 
+3. **单个学生批改页**（三级页面，可新建 `/teaching/[id]/assignments/[assignmentId]/[userId]` 或弹层，按你实现习惯定）：
+   - 展示该学生的提交正文 + 附件 + OCR。
+   - **批改入口在这里**：等级评分 + 反馈 + 保存。
+   - 批改保存后，返回学生列表时能看到该学生的最新评分。
+
 ### 技术提示
-- 提交/批改/OCR 接口都已存在，不用动：`POST .../submit`、`POST .../review`、`POST .../ocr`。
-- 数据：现有 `GET /api/classrooms/[id]/assignments` 已返回 `assignments + submissions + recipients + my_role + server_now`，详情页可直接复用它并过滤到单个 `assignmentId`；若想更干净，也可以新增一个 `GET .../assignments/[assignmentId]` 详情接口。
-- 把 `WrittenAssignments.tsx` 里的详情逻辑（学生提交表单、`StaffPanel` 批改、OCR）迁到详情页，列表只留标题卡片和发布表单。
+- 提交/批改/OCR 接口都已存在：`POST .../submit`、`POST .../review`、`POST .../ocr`（`review` 里的评分字段要随问题四一起改成等级制）。
+- 数据：现有 `GET /api/classrooms/[id]/assignments` 已返回 `assignments + submissions + recipients + my_role + server_now`，详情页/批改页可直接复用它并过滤到单个 `assignmentId`；若想更干净，也可以新增 `GET .../assignments/[assignmentId]` 详情接口。
+- 把 `WrittenAssignments.tsx` 里的详情逻辑（学生提交表单、批改、OCR）迁到对应页面，列表只留标题卡片和发布表单。
+
+---
+
+## 问题四：评分从「数字」改为「等级制」（A / A+ / B …）
+
+### 现状
+- `assignment_submissions.score` 是 `numeric(6,2)`、`max_score` 默认 100，教师批改填 0~100 的数字分数。
+
+### 要改什么
+- 评分改成**字母等级制**，例如 A+ / A / B+ / B / C+ / C / D（具体档位你定，但至少要有 A、A+、B 这类）。
+- 涉及改动：
+  - **数据层**：`assignment_submissions` 的评分字段改为存等级（建议把 `score` 改成 `text`，或新增 `grade text` 字段保留原 `score` 兼容，迁移写进新 `db/migrate_assignments_grade.sql`）。
+  - **接口层** `POST .../review`：入参从 `score`（数字）改为 `grade`（等级字符串），并做枚举校验（只允许约定的等级）。
+  - **前端**：批改入口的分数输入框改成等级选择（下拉或按钮组）；学生列表/学生端展示也改成等级（如「评分：A」）。
+
+### 注意
+- 和问题三的批改页一起做，批改保存后学生列表要能看到最新等级评分。
+- 若之前已有数字评分的历史数据，迁移时要么保留旧字段做兼容、要么给个默认等级，别让老数据报错。
 
 ---
 
