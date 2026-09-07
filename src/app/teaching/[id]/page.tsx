@@ -16,23 +16,23 @@ const TEACHER_CARDS = [
   {
     href: "assignments",
     title: "布置作业",
-    desc: "发布必读文章与笔头作业，设置截止时间。",
+    desc: "发布必读文章（课前预习）与笔头作业（课后作业），追踪作业收发与平时成绩。",
     emoji: "📝",
   },
   {
     href: "speaking",
     title: "备课资料库",
-    desc: "管理备课资料，准备教学课件。（建设中）",
+    desc: "从语料库、必读文章、笔头作业导入素材，勾选后生成针对性课件。（建设中）",
     emoji: "📚",
   },
 ];
 
 const STUDENT_CARDS = [
   {
-    href: "members",
-    title: "班级成员",
-    desc: "查看班级成员。",
-    emoji: "👥",
+    href: "profile",
+    title: "我的档案",
+    desc: "查看班级成员、我的作业提交情况与评分统计。",
+    emoji: "📊",
   },
   {
     href: "assignments",
@@ -41,10 +41,11 @@ const STUDENT_CARDS = [
     emoji: "📝",
   },
   {
-    href: "speaking",
+    href: "/practice",
     title: "课外练习",
-    desc: "完成课外口语练习，练习表达。（建设中）",
+    desc: "前往自学模式，进行口语、写作、错题等练习。",
     emoji: "🎤",
+    external: true,
   },
 ];
 
@@ -138,7 +139,11 @@ export default function ClassroomDashboardPage() {
           {cards.map((c) => (
             <Link
               key={c.href}
-              href={`/teaching/${params.id}/${c.href}`}
+              href={
+                (c as { external?: boolean }).external
+                  ? c.href
+                  : `/teaching/${params.id}/${c.href}`
+              }
               className="group relative rounded-2xl border border-zinc-100 bg-white p-6 text-center shadow-sm transition hover:shadow-md"
             >
               {c.href === "assignments" && !isTeacher && pendingCount > 0 && (
