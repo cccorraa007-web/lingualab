@@ -180,7 +180,24 @@ export default function MistakesPage() {
 
         {mistakes.length > 0 && filteredMistakes.length === 0 && (
           <div className="rounded-2xl border border-dashed border-zinc-200 p-10 text-center text-zinc-400">
-            该语言下还没有错题，可切换目标语言查看其它错题。
+            <p>该语言下还没有错题，可切换目标语言查看其它错题。</p>
+            <p className="mt-2">
+              也可以去口语练习或写作润色板块先练习，发现问题后再回来。
+            </p>
+            <div className="mt-3 flex justify-center gap-2">
+              <Link
+                href="/practice"
+                className="rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+              >
+                去口语练习
+              </Link>
+              <Link
+                href="/polish"
+                className="rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+              >
+                去写作润色
+              </Link>
+            </div>
           </div>
         )}
 
