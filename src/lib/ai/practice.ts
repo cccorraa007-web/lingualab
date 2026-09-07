@@ -11,6 +11,45 @@ export interface PolishItem {
   correct: string;
 }
 
+export interface PolishDimension {
+  name: string;
+  score: number;
+  max_score: number;
+  comment: string;
+}
+
+export interface PolishAssessment {
+  total_score: number;
+  max_score: number;
+  dimensions: PolishDimension[];
+  strengths: string[];
+  improvements: string[];
+  summary: string;
+}
+
+export interface PolishResult {
+  polish: PolishItem[];
+  assessment: PolishAssessment;
+}
+
+function text(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function numberInRange(
+  value: unknown,
+  min: number,
+  max: number,
+  fallback: number,
+): number {
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsed) ? Math.min(max, Math.max(min, parsed)) : fallback;
+}
+
+function textList(value: unknown): string[] {
+  return Array.isArray(value) ? value.map(text).filter(Boolean).slice(0, 6) : [];
+}
+
 function examinerSystem(lang: TargetLang): string {
   const name = langMeta(lang).label;
   return `你是一名${name}口语考官，正在引导一位中文母语学习者练习${name}口语。
@@ -29,7 +68,11 @@ function polishSystem(lang: TargetLang): string {
   const chinglish = `中式${langMeta(lang).short}`;
   return `你是${name}教学专家，擅长帮助中文母语学习者把口语表达改得地道、流畅、丰富。
 
-请分析学习者的口语回答，对每处需要改进的表达输出：
+请完成两部分工作：
+1. 逐条润色：分析学习者的口语回答，对每处需要改进的表达输出 polish 条目。
+2. 整体评估：给出总分与分维度评分，并给出优点、改进建议和总结。
+
+polish 每条字段：
 - original：学习者原句
 - revised：润色后的句子（修正语法和用词错误，并适当扩写、转换表达，使其更流畅更地道）
 - reason：中文解释（说明改了什么、为什么这样更地道）
@@ -38,7 +81,15 @@ function polishSystem(lang: TargetLang): string {
 - wrong：错误的核心部分，要完整到能独立说明这个错误。搭配类错误（介词/动词/冠词搭配）要包含核心词与介词/冠词（例如「diferencia en」而不是只写「en」）；单词误用则写错词本身；若只是扩写优化而无明确错误则为空字符串
 - correct：对应的正确部分（例如「diferencia entre」）；同上可为空
 
-输出 JSON：{"polish": [{"original": "...", "revised": "...", "reason": "...", "example": "...", "error_type": "介词搭配", "wrong": "diferencia en", "correct": "diferencia entre"}]}`;
+assessment 字段：
+- total_score：口语表现总分（百分制 0~100）
+- max_score：100
+- dimensions：从「内容与切题」「流利与连贯」「语言准确」「词汇与表达」四个维度评分，每维 max_score 为 25，comment 用中文简短评价
+- strengths：做得好的地方（中文，2~3 条）
+- improvements：下一步建议（中文，2~3 条）
+- summary：整体点评（中文，2~3 句）
+
+输出 JSON：{"polish": [{"original": "...", "revised": "...", "reason": "...", "example": "...", "error_type": "介词搭配", "wrong": "diferencia en", "correct": "diferencia entre"}], "assessment": {"total_score": 80, "max_score": 100, "dimensions": [{"name": "内容与切题", "score": 20, "max_score": 25, "comment": "..."}], "strengths": ["..."], "improvements": ["..."], "summary": "..."}}`;
 }
 
 export async function chatReply(
@@ -60,19 +111,35 @@ export async function chatReply(
 export async function polishAnswers(
   history: ChatMessage[],
   lang: TargetLang = "es",
-): Promise<PolishItem[]> {
+): Promise<PolishResult> {
   const userAnswers = history
     .filter((m) => m.role === "user")
     .map((m) => m.content)
     .join("\n\n");
-  const result = await chatJSON<{ polish?: Partial<PolishItem>[] }>([
+  const result = await chatJSON<{
+    polish?: Partial<PolishItem>[];
+    assessment?: {
+      total_score?: unknown;
+      max_score?: unknown;
+      dimensions?: {
+        name?: unknown;
+        score?: unknown;
+        max_score?: unknown;
+        comment?: unknown;
+      }[];
+      strengths?: unknown;
+      improvements?: unknown;
+      summary?: unknown;
+    };
+  }>([
     { role: "system", content: polishSystem(lang) },
     {
       role: "user",
-      content: `以下是学习者的口语回答，请分析并给出润色建议：\n\n${userAnswers}`,
+      content: `以下是学习者的口语回答，请分析并给出润色建议与整体评估：\n\n${userAnswers}`,
     },
   ]);
-  return Array.isArray(result.polish)
+
+  const polish = Array.isArray(result.polish)
     ? result.polish.map((p) => ({
         original: p.original ?? "",
         revised: p.revised ?? "",
@@ -83,6 +150,43 @@ export async function polishAnswers(
         correct: p.correct ?? "",
       }))
     : [];
+
+  const rawAssessment = result.assessment ?? {};
+  const dimensions = Array.isArray(rawAssessment.dimensions)
+    ? rawAssessment.dimensions
+        .map((dimension) => {
+          const maxScore = numberInRange(dimension.max_score, 1, 100, 25);
+          return {
+            name: text(dimension.name),
+            score: numberInRange(dimension.score, 0, maxScore, 0),
+            max_score: maxScore,
+            comment: text(dimension.comment),
+          };
+        })
+        .filter((dimension) => dimension.name)
+        .slice(0, 8)
+    : [];
+  const dimensionMax = dimensions.reduce((sum, item) => sum + item.max_score, 0);
+  const dimensionTotal = dimensions.reduce((sum, item) => sum + item.score, 0);
+  const maxScore = numberInRange(rawAssessment.max_score, 1, 1000, dimensionMax || 100);
+  const totalScore = numberInRange(
+    rawAssessment.total_score,
+    0,
+    maxScore,
+    dimensionMax ? (dimensionTotal / dimensionMax) * maxScore : 0,
+  );
+
+  return {
+    polish,
+    assessment: {
+      total_score: Math.round(totalScore * 10) / 10,
+      max_score: Math.round(maxScore * 10) / 10,
+      dimensions,
+      strengths: textList(rawAssessment.strengths),
+      improvements: textList(rawAssessment.improvements),
+      summary: text(rawAssessment.summary),
+    },
+  };
 }
 
 export interface InterpretingMistake {

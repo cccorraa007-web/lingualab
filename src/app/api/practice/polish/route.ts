@@ -29,6 +29,9 @@ export async function POST(request: Request) {
       : body.lang === "es"
         ? "es"
         : detectLanguage(messages.map((m) => m.content).join("\n"));
-  const polish = await polishAnswers(messages, lang);
-  return NextResponse.json({ polish });
+  const result = await polishAnswers(messages, lang);
+  return NextResponse.json({
+    polish: result.polish,
+    assessment: result.assessment,
+  });
 }

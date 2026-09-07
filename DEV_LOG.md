@@ -359,3 +359,10 @@ LinguaLab 的核心价值主张：**把用户读过的材料，自动转化成�
 - 班级作答分析接口生成后回写 `class_summary` 与时间戳到文章记录。
 - 辅助课件 AI 输入新增「班级作答整体情况分析」：`generateLessonContent` 接收 `classSummary`，若存在则让 AI 把学生共性问题/薄弱点纳入讲解侧重与练习。
 - 生成课件前若尚未生成班级作答分析，弹窗提醒老师，并提供「先去生成分析」与「继续生成课件」两个选择。
+
+### 8.5 口语润色对齐写作润色：AI 评分 + 建议 + 错题卡片
+
+- 借鉴队友写作润色（`src/lib/ai/writing.ts` 的 `polishWriting`）的多维度评价与 AI 打分，改造口语润色。
+- `src/lib/ai/practice.ts`：`polishAnswers` 返回类型从 `PolishItem[]` 改为 `PolishResult`（`polish` + `assessment`）。`assessment` 含总分 `total_score/max_score`、四个维度（内容与切题 / 流利与连贯 / 语言准确 / 词汇与表达，每维 25 分）、`strengths/improvements/summary`。
+- `src/app/api/practice/polish/route.ts`：返回 `{ polish, assessment }`。
+- `src/app/practice/page.tsx`：自由练习与考题模式的总结页新增「整体评分 + 分维度 + 优缺点建议」卡片；逐条润色建议升级为「原文 / 修改后」对照卡（`TextPanel`），更贴近错题卡片样式。

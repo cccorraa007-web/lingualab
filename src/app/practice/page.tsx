@@ -20,6 +20,15 @@ interface PolishItem {
   correct: string;
 }
 
+interface PolishAssessment {
+  total_score: number;
+  max_score: number;
+  dimensions: { name: string; score: number; max_score: number; comment: string }[];
+  strengths: string[];
+  improvements: string[];
+  summary: string;
+}
+
 interface PromptCard {
   id?: string;
   content: string;
@@ -287,6 +296,7 @@ function FreePractice({
   const [loading, setLoading] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [polish, setPolish] = useState<PolishItem[] | null>(null);
+  const [assessment, setAssessment] = useState<PolishAssessment | null>(null);
   const [selectedPolish, setSelectedPolish] = useState<Set<number>>(new Set());
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<PolishItem | null>(null);
@@ -367,6 +377,7 @@ function FreePractice({
       if (!res.ok) throw new Error(data.error || "失败");
       const polishItems = data.polish ?? [];
       setPolish(polishItems);
+      setAssessment(data.assessment ?? null);
       setSelectedPolish(new Set());
       setMistakeSaved(false);
       try {
@@ -521,6 +532,7 @@ function FreePractice({
           <button
             onClick={() => {
               setPolish(null);
+              setAssessment(null);
               setMessages([]);
               setTopic(null);
             }}
@@ -529,6 +541,8 @@ function FreePractice({
             再来一轮
           </button>
         </div>
+
+        {assessment && <AssessmentSection assessment={assessment} />}
 
         <section>
           <h3 className="text-sm font-semibold text-zinc-700">文字稿</h3>
@@ -635,8 +649,10 @@ function FreePractice({
                             </span>
                           )}
                         </div>
-                        <p className="mt-2 text-sm text-zinc-500 line-through">{p.original}</p>
-                        <p className="mt-1 text-sm font-medium text-emerald-700">{p.revised}</p>
+                        <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                          <TextPanel label="原文" text={p.original} tone="bad" />
+                          <TextPanel label="修改后" text={p.revised} tone="good" />
+                        </div>
                         {!p.wrong || !p.correct ? (
                           <p className="mt-1 text-xs text-zinc-400">
                             仅扩写优化、无明确错误，无法加入错题本
@@ -787,6 +803,7 @@ function ExamPractice({ lang }: { lang: TargetLang }) {
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [transcript, setTranscript] = useState("");
   const [polish, setPolish] = useState<PolishItem[] | null>(null);
+  const [assessment, setAssessment] = useState<PolishAssessment | null>(null);
   const [polishing, setPolishing] = useState(false);
   const [error, setError] = useState("");
   const recorderRef = useRef<StreamingRecorder | null>(null);
@@ -821,6 +838,7 @@ function ExamPractice({ lang }: { lang: TargetLang }) {
     setAudioUrl(null);
     setTranscript("");
     setPolish(null);
+    setAssessment(null);
     audioBlobRef.current = null;
     try {
       const res = await apiFetch("/api/practice/exam-question", {
@@ -867,6 +885,7 @@ function ExamPractice({ lang }: { lang: TargetLang }) {
     setAudioUrl(null);
     setTranscript("");
     setPolish(null);
+    setAssessment(null);
     audioBlobRef.current = null;
   }
 
@@ -887,6 +906,7 @@ function ExamPractice({ lang }: { lang: TargetLang }) {
       const polishData = await polishRes.json();
       if (!polishRes.ok) throw new Error(polishData.error || "润色失败");
       setPolish(polishData.polish ?? []);
+      setAssessment(polishData.assessment ?? null);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -1020,6 +1040,12 @@ function ExamPractice({ lang }: { lang: TargetLang }) {
         </div>
       )}
 
+      {phase === "done" && assessment && (
+        <div className="mt-4">
+          <AssessmentSection assessment={assessment} />
+        </div>
+      )}
+
       {phase === "done" && polish && (
         <div className="mt-4 rounded-xl border border-zinc-100 bg-white p-4">
           <p className="text-sm font-semibold text-zinc-700">润色建议</p>
@@ -1030,7 +1056,7 @@ function ExamPractice({ lang }: { lang: TargetLang }) {
           ) : (
             <div className="mt-2 space-y-3">
               {polish.map((p, i) => (
-                <div key={i} className="rounded-lg bg-zinc-50 p-3">
+                <div key={i} className="rounded-xl border border-zinc-100 bg-white p-4">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
                       {p.error_type}
@@ -1043,8 +1069,10 @@ function ExamPractice({ lang }: { lang: TargetLang }) {
                       </span>
                     )}
                   </div>
-                  <p className="mt-1 text-sm text-zinc-500 line-through">{p.original}</p>
-                  <p className="mt-1 text-sm font-medium text-emerald-700">{p.revised}</p>
+                  <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                    <TextPanel label="原文" text={p.original} tone="bad" />
+                    <TextPanel label="修改后" text={p.revised} tone="good" />
+                  </div>
                   {p.reason && <p className="mt-1 text-xs text-zinc-400">{p.reason}</p>}
                   {p.example && (
                     <div className="mt-2 rounded-lg bg-blue-50 px-3 py-2">
@@ -1227,5 +1255,86 @@ function PracticeHistory({ sessions }: { sessions: Session[] }) {
         })}
       </div>
     </section>
+  );
+}
+
+function AssessmentSection({ assessment }: { assessment: PolishAssessment }) {
+  return (
+    <section className="rounded-xl border border-zinc-100 bg-white p-4">
+      <div className="flex items-end justify-between">
+        <div>
+          <p className="text-sm font-semibold text-zinc-500">整体评分</p>
+          <p className="mt-1 text-4xl font-bold text-orange-600">
+            {assessment.total_score}
+            <span className="ml-1 text-lg font-medium text-zinc-400">
+              / {assessment.max_score}
+            </span>
+          </p>
+        </div>
+      </div>
+      {assessment.summary && (
+        <p className="mt-3 text-sm leading-6 text-zinc-700">{assessment.summary}</p>
+      )}
+      {assessment.dimensions.length > 0 && (
+        <div className="mt-4 grid gap-2 sm:grid-cols-2">
+          {assessment.dimensions.map((d, i) => (
+            <div key={`${d.name}-${i}`} className="rounded-lg bg-zinc-50 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="font-semibold text-zinc-800">{d.name}</p>
+                <span className="shrink-0 text-sm font-semibold text-orange-700">
+                  {d.score}/{d.max_score}
+                </span>
+              </div>
+              {d.comment && (
+                <p className="mt-1 text-xs leading-5 text-zinc-600">{d.comment}</p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <FeedbackList title="做得好的地方" items={assessment.strengths} tone="good" />
+        <FeedbackList title="下一步建议" items={assessment.improvements} tone="improve" />
+      </div>
+    </section>
+  );
+}
+
+function FeedbackList({
+  title,
+  items,
+  tone,
+}: {
+  title: string;
+  items: string[];
+  tone: "good" | "improve";
+}) {
+  if (items.length === 0) return null;
+  const classes =
+    tone === "good"
+      ? "border-emerald-100 bg-emerald-50/60 text-emerald-800"
+      : "border-orange-100 bg-orange-50/60 text-orange-800";
+  return (
+    <div className={`rounded-xl border p-4 ${classes}`}>
+      <p className="text-sm font-semibold">{title}</p>
+      <ul className="mt-2 space-y-1 text-sm leading-6">
+        {items.map((item, index) => (
+          <li key={`${item}-${index}`} className="flex gap-2">
+            <span aria-hidden="true">•</span>
+            <span>{item}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function TextPanel({ label, text, tone }: { label: string; text: string; tone: "bad" | "good" }) {
+  const classes = tone === "bad" ? "bg-red-50/60 text-red-500" : "bg-emerald-50/60 text-emerald-600";
+  return (
+    <div className={`rounded-lg p-3 ${classes}`}>
+      <p className="text-xs font-semibold">{label}</p>
+      <p className="mt-1 text-sm leading-6 text-zinc-700">{text}</p>
+    </div>
   );
 }
