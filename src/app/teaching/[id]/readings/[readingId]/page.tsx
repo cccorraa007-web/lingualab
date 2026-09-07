@@ -349,6 +349,81 @@ export default function ReadingPage() {
     questions.length === 0 || answeredCount >= questions.length;
   const flowDone = hasNotes && allAnswered;
 
+  const annotationsSection = annotations.length > 0 ? (
+    <div className="mt-4 rounded-xl border border-zinc-100 bg-zinc-50/60 p-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-zinc-700">
+          {isTeacher ? "备课笔记" : "我的勾画与批注"}
+        </h3>
+        {isTeacher && (
+          <button
+            onClick={openLesson}
+            className="rounded-lg bg-orange-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-orange-700"
+          >
+            生成辅助课件
+          </button>
+        )}
+      </div>
+      <ul className="mt-2 space-y-2">
+        {annotations.map((a) => (
+          <li
+            key={a.id}
+            className="flex items-start gap-2 rounded-lg border border-zinc-100 bg-white p-3"
+          >
+            <span
+              className={`rounded px-1.5 py-0.5 text-sm font-medium ${ANNOTATION_BG[a.color] ?? "bg-yellow-200"}`}
+            >
+              {a.text}
+            </span>
+            {a.note && (
+              <span className="flex-1 text-sm text-zinc-600">{a.note}</span>
+            )}
+            <button
+              onClick={() => deleteAnnotation(a.id)}
+              className="shrink-0 text-sm text-zinc-300 hover:text-red-600"
+            >
+              删除
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  ) : null;
+
+  const questionsSection = questions.length > 0 ? (
+    <div className="mt-6">
+      <h3 className="text-sm font-semibold text-zinc-700">
+        题目（{questions.length}）
+      </h3>
+      <div className="mt-3 space-y-2">
+        {questions.map((q) => (
+          <div key={q.id} className="group relative">
+            <Link
+              href={`/teaching/${params.id}/readings/${params.readingId}/questions/${q.id}`}
+              className="block rounded-xl border border-orange-100 bg-orange-50/40 p-4 transition hover:shadow-md"
+            >
+              <p className="text-sm text-zinc-500">{q.sentence}</p>
+              <p className="mt-1 text-base font-medium text-zinc-900">
+                {q.question}
+              </p>
+              <p className="mt-2 text-xs text-orange-600">
+                {isTeacher ? "查看学生作答 →" : "去作答 →"}
+              </p>
+            </Link>
+            {isTeacher && (
+              <button
+                onClick={() => deleteQuestion(q.id)}
+                className="absolute right-3 top-3 text-xs text-zinc-400 hover:text-red-600"
+              >
+                删除
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  ) : null;
+
   return (
     <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
       <Link
@@ -358,36 +433,67 @@ export default function ReadingPage() {
         ← {showPrep ? "退出备课" : "返回课后作业"}
       </Link>
 
-      {/* 页面功能引导 */}
-      {!showPrep && (
+      {/* 学习引导（学生） */}
+      {!isTeacher && !showPrep && (
+        <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50/50 p-4">
+          <p className="font-semibold text-blue-700">学习引导</p>
+          <ul className="mt-2 space-y-1.5 text-sm text-zinc-600">
+            <li className="flex items-center gap-2">
+              <span className={hasNotes ? "text-emerald-600" : "text-zinc-300"}>
+                {hasNotes ? "✓" : "○"}
+              </span>
+              勾画生词、添加批注，提出你的疑惑
+            </li>
+            <li className="flex items-center gap-2">
+              <span
+                className={allAnswered ? "text-emerald-600" : "text-zinc-300"}
+              >
+                {allAnswered ? "✓" : "○"}
+              </span>
+              回答老师的问题（已答 {answeredCount}/{questions.length}）
+            </li>
+          </ul>
+          <div className="mt-3 border-t border-blue-100 pt-3">
+            {addedToCorpus ? (
+              <p className="text-sm font-medium text-emerald-700">
+                已加入语料库，可前往「语料库」继续学习
+              </p>
+            ) : (
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  onClick={addToCorpus}
+                  disabled={addingToCorpus}
+                  className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-50"
+                >
+                  {addingToCorpus ? "AI 提取中…" : "加入语料库"}
+                </button>
+                <span className="text-xs text-zinc-400">
+                  {flowDone
+                    ? "阅读与作答已完成，建议加入语料库继续学习"
+                    : "完成勾画与作答后，即可将文章加入语料库"}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 页面功能引导（教师） */}
+      {isTeacher && !showPrep && (
         <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50/50 p-4">
           <p className="font-semibold text-blue-700">页面说明</p>
-          {isTeacher ? (
-            <ul className="mt-2 space-y-1.5 text-sm text-zinc-600">
-              <li>
-                <b>选中原文</b>可添加题目（发布后学生作答）或加入备课笔记。
-              </li>
-              <li>
-                <b>点进题目</b>可查看学生作答并批改留言。
-              </li>
-              <li>
-                顶部「<b>班级作答分析</b>」可查看班级总体与每个学生情况；备课笔记旁「
-                <b>生成辅助课件</b>」可基于批注生成可下载课件。
-              </li>
-            </ul>
-          ) : (
-            <ul className="mt-2 space-y-1.5 text-sm text-zinc-600">
-              <li>
-                <b>选中原文</b>可勾画生词、添加批注提出疑问。
-              </li>
-              <li>
-                <b>点进题目</b>进行作答，等待老师批改。
-              </li>
-              <li>
-                完成勾画与作答后，可一键<b>加入语料库</b>继续学习。
-              </li>
-            </ul>
-          )}
+          <ul className="mt-2 space-y-1.5 text-sm text-zinc-600">
+            <li>
+              <b>选中原文</b>可添加题目（发布后学生作答）或加入备课笔记。
+            </li>
+            <li>
+              <b>点进题目</b>可查看学生作答并批改留言。
+            </li>
+            <li>
+              顶部「<b>班级作答分析</b>」可查看班级总体与每个学生情况；备课笔记旁「
+              <b>生成辅助课件</b>」可基于批注生成可下载课件。
+            </li>
+          </ul>
         </div>
       )}
 
@@ -447,91 +553,8 @@ export default function ReadingPage() {
         </div>
       )}
 
-      {/* 备课笔记 / 勾画与批注 */}
-      {annotations.length > 0 && (
-        <div className="mt-4 rounded-xl border border-zinc-100 bg-zinc-50/60 p-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-zinc-700">
-              {isTeacher ? "备课笔记" : "我的勾画与批注"}
-            </h3>
-            {isTeacher && (
-              <button
-                onClick={openLesson}
-                className="rounded-lg bg-orange-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-orange-700"
-              >
-                生成辅助课件
-              </button>
-            )}
-          </div>
-          <ul className="mt-2 space-y-2">
-            {annotations.map((a) => (
-              <li
-                key={a.id}
-                className="flex items-start gap-2 rounded-lg border border-zinc-100 bg-white p-3"
-              >
-                <span
-                  className={`rounded px-1.5 py-0.5 text-sm font-medium ${ANNOTATION_BG[a.color] ?? "bg-yellow-200"}`}
-                >
-                  {a.text}
-                </span>
-                {a.note && (
-                  <span className="flex-1 text-sm text-zinc-600">{a.note}</span>
-                )}
-                <button
-                  onClick={() => deleteAnnotation(a.id)}
-                  className="shrink-0 text-sm text-zinc-300 hover:text-red-600"
-                >
-                  删除
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {!isTeacher && !showPrep && (
-        <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50/50 p-4">
-          <p className="font-semibold text-blue-700">学习引导</p>
-          <ul className="mt-2 space-y-1.5 text-sm text-zinc-600">
-            <li className="flex items-center gap-2">
-              <span className={hasNotes ? "text-emerald-600" : "text-zinc-300"}>
-                {hasNotes ? "✓" : "○"}
-              </span>
-              勾画生词、添加批注，提出你的疑惑
-            </li>
-            <li className="flex items-center gap-2">
-              <span
-                className={allAnswered ? "text-emerald-600" : "text-zinc-300"}
-              >
-                {allAnswered ? "✓" : "○"}
-              </span>
-              回答老师的问题（已答 {answeredCount}/{questions.length}）
-            </li>
-          </ul>
-          <div className="mt-3 border-t border-blue-100 pt-3">
-            {addedToCorpus ? (
-              <p className="text-sm font-medium text-emerald-700">
-                已加入语料库，可前往「语料库」继续学习
-              </p>
-            ) : (
-              <div className="flex flex-wrap items-center gap-3">
-                <button
-                  onClick={addToCorpus}
-                  disabled={addingToCorpus}
-                  className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-50"
-                >
-                  {addingToCorpus ? "AI 提取中…" : "加入语料库"}
-                </button>
-                <span className="text-xs text-zinc-400">
-                  {flowDone
-                    ? "阅读与作答已完成，建议加入语料库继续学习"
-                    : "完成勾画与作答后，即可将文章加入语料库"}
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      {/* 教师：备课笔记在原文上方；学生：题目在原文上方 */}
+      {isTeacher ? annotationsSection : questionsSection}
 
       {error && (
         <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
@@ -553,40 +576,8 @@ export default function ReadingPage() {
           ))}
       </div>
 
-      {/* 题目（点击进入查看/作答） */}
-      {questions.length > 0 && (
-        <div className="mt-6">
-          <h3 className="text-sm font-semibold text-zinc-700">
-            题目（{questions.length}）
-          </h3>
-          <div className="mt-3 space-y-2">
-            {questions.map((q) => (
-              <div key={q.id} className="group relative">
-                <Link
-                  href={`/teaching/${params.id}/readings/${params.readingId}/questions/${q.id}`}
-                  className="block rounded-xl border border-orange-100 bg-orange-50/40 p-4 transition hover:shadow-md"
-                >
-                  <p className="text-sm text-zinc-500">{q.sentence}</p>
-                  <p className="mt-1 text-base font-medium text-zinc-900">
-                    {q.question}
-                  </p>
-                  <p className="mt-2 text-xs text-orange-600">
-                    {isTeacher ? "查看学生作答 →" : "去作答 →"}
-                  </p>
-                </Link>
-                {isTeacher && (
-                  <button
-                    onClick={() => deleteQuestion(q.id)}
-                    className="absolute right-3 top-3 text-xs text-zinc-400 hover:text-red-600"
-                  >
-                    删除
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* 教师：题目在原文下方；学生：勾画与批注在原文下方 */}
+      {isTeacher ? questionsSection : annotationsSection}
 
       {/* 工具栏 */}
       {toolbar && (
