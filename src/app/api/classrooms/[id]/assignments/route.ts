@@ -4,6 +4,13 @@ import { canManageAssignments, getClassroomRole } from "./_auth";
 
 export const dynamic = "force-dynamic";
 const BUCKET = "assignment-files";
+const MAX_FILE_SIZE = 25 * 1024 * 1024;
+const ALLOWED_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif", "audio/mpeg", "audio/wav", "audio/webm", "video/mp4", "video/webm", "application/pdf"]);
+
+function safeName(name: string): string {
+  const extension = name.includes(".") ? `.${name.split(".").pop()}` : "";
+  return `${crypto.randomUUID()}${extension.toLowerCase().replace(/[^.a-z0-9]/g, "")}`;
+}
 
 async function addMediaUrls<T extends { media_paths?: string[] | null }>(
   client: Parameters<typeof getClassroomRole>[0],
@@ -63,7 +70,7 @@ export async function GET(
       );
     }
     return NextResponse.json({
-      assignments,
+      assignments: await addMediaUrls(auth.client, assignments),
       recipients: recipients ?? [],
       submissions: await addMediaUrls(auth.client, submissions ?? []),
       my_role: role,
@@ -80,7 +87,7 @@ export async function GET(
     return NextResponse.json({ error: submissionError.message }, { status: 500 });
   }
   return NextResponse.json({
-    assignments,
+    assignments: await addMediaUrls(auth.client, assignments),
     submissions: await addMediaUrls(auth.client, submissions ?? []),
     my_role: role,
     server_now: new Date().toISOString(),
@@ -99,20 +106,38 @@ export async function POST(
     return NextResponse.json({ error: "只有教师能发布作业" }, { status: 403 });
   }
 
-  let body: { title?: unknown; content?: unknown; ends_at?: unknown };
+  let title = "";
+  let content = "";
+  let endsAtValue = "";
+  let files: File[] = [];
   try {
-    body = await request.json();
+    if (request.headers.get("content-type")?.includes("multipart/form-data")) {
+      const form = await request.formData();
+      title = String(form.get("title") ?? "").trim();
+      content = String(form.get("content") ?? "").trim();
+      endsAtValue = String(form.get("ends_at") ?? "");
+      files = form.getAll("files").filter((item): item is File => item instanceof File && item.size > 0);
+    } else {
+      const body = (await request.json()) as { title?: unknown; content?: unknown; ends_at?: unknown };
+      title = typeof body.title === "string" ? body.title.trim() : "";
+      content = typeof body.content === "string" ? body.content.trim() : "";
+      endsAtValue = typeof body.ends_at === "string" ? body.ends_at : "";
+    }
   } catch {
-    return NextResponse.json({ error: "请求体不是合法 JSON" }, { status: 400 });
+    return NextResponse.json({ error: "无法读取发布内容" }, { status: 400 });
   }
-  const title = typeof body.title === "string" ? body.title.trim() : "";
-  const content = typeof body.content === "string" ? body.content.trim() : "";
-  const endsAt = typeof body.ends_at === "string" ? new Date(body.ends_at) : null;
+  const endsAt = endsAtValue ? new Date(endsAtValue) : null;
   if (!title || !content || !endsAt || Number.isNaN(endsAt.getTime())) {
     return NextResponse.json({ error: "请填写题目、要求和截止时间" }, { status: 400 });
   }
   if (title.length > 300 || content.length > 12_000) {
     return NextResponse.json({ error: "作业题目或要求过长" }, { status: 400 });
+  }
+  if (files.length > 5) return NextResponse.json({ error: "每次最多上传 5 个附件" }, { status: 400 });
+  for (const file of files) {
+    if (!ALLOWED_TYPES.has(file.type) || file.size > MAX_FILE_SIZE) {
+      return NextResponse.json({ error: `附件 ${file.name} 类型不支持或超过 25MB` }, { status: 400 });
+    }
   }
   if (endsAt.getTime() <= Date.now()) {
     return NextResponse.json({ error: "截止时间必须晚于当前时间" }, { status: 400 });
@@ -133,6 +158,27 @@ export async function POST(
     return NextResponse.json({ error: assignmentError?.message || "发布失败" }, { status: 500 });
   }
 
+  const uploadedPaths: string[] = [];
+  for (const file of files) {
+    const path = `${assignment.id}/${auth.user.id}/${safeName(file.name)}`;
+    const { error: uploadError } = await auth.client.storage.from(BUCKET).upload(path, file, { contentType: file.type, upsert: false });
+    if (uploadError) {
+      if (uploadedPaths.length) await auth.client.storage.from(BUCKET).remove(uploadedPaths);
+      await auth.client.from("classroom_assignments").delete().eq("id", assignment.id);
+      return NextResponse.json({ error: `附件上传失败：${uploadError.message}` }, { status: 500 });
+    }
+    uploadedPaths.push(path);
+  }
+  if (uploadedPaths.length) {
+    const { error: pathError } = await auth.client.from("classroom_assignments").update({ media_paths: uploadedPaths }).eq("id", assignment.id);
+    if (pathError) {
+      await auth.client.storage.from(BUCKET).remove(uploadedPaths);
+      await auth.client.from("classroom_assignments").delete().eq("id", assignment.id);
+      return NextResponse.json({ error: pathError.message }, { status: 500 });
+    }
+    assignment.media_paths = uploadedPaths;
+  }
+
   const { data: members, error: memberError } = await auth.client
     .from("classroom_members")
     .select("user_id, email")
@@ -140,6 +186,7 @@ export async function POST(
     .eq("status", "approved")
     .neq("role", "teacher");
   if (memberError) {
+    if (uploadedPaths.length) await auth.client.storage.from(BUCKET).remove(uploadedPaths);
     await auth.client.from("classroom_assignments").delete().eq("id", assignment.id);
     return NextResponse.json({ error: memberError.message }, { status: 500 });
   }
@@ -154,6 +201,7 @@ export async function POST(
         })),
       );
     if (recipientError) {
+      if (uploadedPaths.length) await auth.client.storage.from(BUCKET).remove(uploadedPaths);
       await auth.client.from("classroom_assignments").delete().eq("id", assignment.id);
       return NextResponse.json({ error: recipientError.message }, { status: 500 });
     }

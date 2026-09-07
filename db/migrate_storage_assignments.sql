@@ -21,7 +21,7 @@ on conflict (id) do update
       allowed_mime_types = excluded.allowed_mime_types;
 
 -- 路径固定为 {assignment_id}/{user_id}/{随机文件名}。
--- 学生只能上传、读取和删除自己的附件；任课教师可读取所教班级的附件。
+-- 上传者只能管理自己的附件；教师可读全班提交，学生可读教师发布附件。
 drop policy if exists "assignment_files_upload" on storage.objects;
 create policy "assignment_files_upload"
   on storage.objects for insert to authenticated
@@ -43,8 +43,14 @@ create policy "assignment_files_read"
         join public.classroom_members m on m.classroom_id = a.classroom_id
         where a.id::text = (storage.foldername(name))[1]
           and m.user_id = auth.uid()
-          and m.role = 'teacher'
           and m.status = 'approved'
+          and (
+            m.role = 'teacher'
+            or (
+              m.role = 'student'
+              and (storage.foldername(name))[2] = a.created_by::text
+            )
+          )
       )
     )
   );
