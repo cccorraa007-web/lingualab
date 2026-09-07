@@ -53,6 +53,30 @@
 
 ---
 
+## 问题三：笔头作业要有「二级详情页」（类似必读文章）
+
+### 现状
+- `WrittenAssignments.tsx` 把**列表 + 发布 + 每个作业的完整详情（正文、附件、学生提交、批改、OCR）全部平铺在同一个页面**，点开列表页就直接看到/修改所有提交，太乱。
+
+### 要改什么
+改成类似「必读文章」的**列表 → 点击进入二级页面**结构：
+
+1. **列表页**（`src/app/teaching/[id]/assignments/page.tsx` 里的「笔头作业」区）：
+   - 每篇作业只显示一个**标题卡片**（标题 + 截止时间 + 进行中/已截止 + 教师看已交数、学生看已提交/未提交），点击跳转到详情页 `/teaching/[id]/assignments/[assignmentId]`。
+   - 「发布笔头作业」入口保留在列表页（教师）。
+
+2. **详情页**（新建 `src/app/teaching/[id]/assignments/[assignmentId]/page.tsx`）：
+   - 展示作业正文 + 教师附件链接。
+   - **教师端**：学生提交列表（点开单个学生看正文/附件/OCR）+ 批改入口（分数 + 反馈 + 保存）+ 未交名单。
+   - **学生端**：提交表单（文字 + 附件）+ 查看自己的提交、评分、教师反馈。
+
+### 技术提示
+- 提交/批改/OCR 接口都已存在，不用动：`POST .../submit`、`POST .../review`、`POST .../ocr`。
+- 数据：现有 `GET /api/classrooms/[id]/assignments` 已返回 `assignments + submissions + recipients + my_role + server_now`，详情页可直接复用它并过滤到单个 `assignmentId`；若想更干净，也可以新增一个 `GET .../assignments/[assignmentId]` 详情接口。
+- 把 `WrittenAssignments.tsx` 里的详情逻辑（学生提交表单、`StaffPanel` 批改、OCR）迁到详情页，列表只留标题卡片和发布表单。
+
+---
+
 ## 相关文件清单
 
 | 文件 | 作用 |
