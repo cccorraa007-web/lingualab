@@ -48,7 +48,7 @@ export async function recognizeText(
     throw new Error("缺少图片数据");
   }
 
-  // 参与签名的参数：系统参数 + Languages（数组用 Languages.1/Languages.2 展开）。
+  // 参与签名的参数：系统参数 + Languages（逗号分隔字符串，如 "lading,eng,chn"）。
   // 注意：body（图片）作为原始请求体发送，不参与签名。
   const params: Record<string, string> = {
     AccessKeyId: accessKeyId,
@@ -59,13 +59,11 @@ export async function recognizeText(
     SignatureVersion: "1.0",
     Timestamp: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
     Version: OCR_VERSION,
+    Languages: OCR_LANGUAGES.join(","),
   };
-  OCR_LANGUAGES.forEach((lang, i) => {
-    params[`Languages.${i + 1}`] = lang;
-  });
   params.Signature = rpcSignature("POST", params, accessKeySecret);
 
-  // 全部签名参数（系统 + Languages.N + Signature）放 URL query；图片二进制作为原始请求体发送。
+  // 全部签名参数（系统 + Languages + Signature）放 URL query；图片二进制作为原始请求体发送。
   const query = Object.keys(params)
     .sort()
     .map((k) => `${percentEncode(k)}=${percentEncode(params[k])}`)
