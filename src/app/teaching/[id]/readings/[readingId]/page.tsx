@@ -12,6 +12,8 @@ interface Reading {
   raw_text: string;
   starts_at: string;
   ends_at: string | null;
+  class_summary: string | null;
+  class_analysis_at: string | null;
 }
 
 interface Annotation {
@@ -136,6 +138,7 @@ export default function ReadingPage() {
     dataUrl: string;
   } | null>(null);
   const [lessonError, setLessonError] = useState("");
+  const [confirmNoAnalysis, setConfirmNoAnalysis] = useState(false);
 
   const LESSON_TYPES = [
     { value: "blank", label: "填空题" },
@@ -285,6 +288,23 @@ export default function ReadingPage() {
       setLessonError("请至少选择一种题型");
       return;
     }
+    if (!reading?.class_analysis_at) {
+      setLessonError("");
+      setConfirmNoAnalysis(true);
+      return;
+    }
+    await doGenerateLesson();
+  }
+
+  function openLesson() {
+    setConfirmNoAnalysis(false);
+    setLessonResult(null);
+    setLessonError("");
+    setShowLesson(true);
+  }
+
+  async function doGenerateLesson() {
+    setConfirmNoAnalysis(false);
     setGenerating(true);
     setLessonError("");
     setLessonResult(null);
@@ -388,7 +408,7 @@ export default function ReadingPage() {
         </h1>
         {showPrep && (
           <button
-            onClick={() => setShowLesson(true)}
+            onClick={openLesson}
             className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700"
           >
             辅助备课
@@ -424,6 +444,48 @@ export default function ReadingPage() {
               </span>
             </div>
           </Link>
+        </div>
+      )}
+
+      {/* 备课笔记 / 勾画与批注 */}
+      {annotations.length > 0 && (
+        <div className="mt-4 rounded-xl border border-zinc-100 bg-zinc-50/60 p-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-zinc-700">
+              {isTeacher ? "备课笔记" : "我的勾画与批注"}
+            </h3>
+            {isTeacher && (
+              <button
+                onClick={openLesson}
+                className="rounded-lg bg-orange-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-orange-700"
+              >
+                生成辅助课件
+              </button>
+            )}
+          </div>
+          <ul className="mt-2 space-y-2">
+            {annotations.map((a) => (
+              <li
+                key={a.id}
+                className="flex items-start gap-2 rounded-lg border border-zinc-100 bg-white p-3"
+              >
+                <span
+                  className={`rounded px-1.5 py-0.5 text-sm font-medium ${ANNOTATION_BG[a.color] ?? "bg-yellow-200"}`}
+                >
+                  {a.text}
+                </span>
+                {a.note && (
+                  <span className="flex-1 text-sm text-zinc-600">{a.note}</span>
+                )}
+                <button
+                  onClick={() => deleteAnnotation(a.id)}
+                  className="shrink-0 text-sm text-zinc-300 hover:text-red-600"
+                >
+                  删除
+                </button>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
@@ -523,48 +585,6 @@ export default function ReadingPage() {
               </div>
             ))}
           </div>
-        </div>
-      )}
-
-      {/* 备课笔记 / 勾画与批注 */}
-      {annotations.length > 0 && (
-        <div className="mt-4 rounded-xl border border-zinc-100 bg-zinc-50/60 p-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-zinc-700">
-              {isTeacher ? "备课笔记" : "我的勾画与批注"}
-            </h3>
-            {isTeacher && (
-              <button
-                onClick={() => setShowLesson(true)}
-                className="rounded-lg bg-orange-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-orange-700"
-              >
-                生成辅助课件
-              </button>
-            )}
-          </div>
-          <ul className="mt-2 space-y-2">
-            {annotations.map((a) => (
-              <li
-                key={a.id}
-                className="flex items-start gap-2 rounded-lg border border-zinc-100 bg-white p-3"
-              >
-                <span
-                  className={`rounded px-1.5 py-0.5 text-sm font-medium ${ANNOTATION_BG[a.color] ?? "bg-yellow-200"}`}
-                >
-                  {a.text}
-                </span>
-                {a.note && (
-                  <span className="flex-1 text-sm text-zinc-600">{a.note}</span>
-                )}
-                <button
-                  onClick={() => deleteAnnotation(a.id)}
-                  className="shrink-0 text-sm text-zinc-300 hover:text-red-600"
-                >
-                  删除
-                </button>
-              </li>
-            ))}
-          </ul>
         </div>
       )}
 
@@ -776,13 +796,39 @@ export default function ReadingPage() {
                   <p className="mt-3 text-sm text-red-600">{lessonError}</p>
                 )}
 
-                <button
-                  onClick={generateLesson}
-                  disabled={generating}
-                  className="mt-4 w-full rounded-lg bg-orange-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-50"
-                >
-                  {generating ? "AI 生成中…（可能需要一段时间）" : "生成课件"}
-                </button>
+                {confirmNoAnalysis ? (
+                  <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
+                    <p className="text-sm font-semibold text-amber-800">
+                      尚未生成班级作答分析
+                    </p>
+                    <p className="mt-1 text-sm text-amber-700">
+                      课件将结合班级作答的整体情况分析（学生共性问题、薄弱点）来调整讲解侧重。是否先生成分析，或继续直接生成课件？
+                    </p>
+                    <div className="mt-3 flex gap-2">
+                      <Link
+                        href={`/teaching/${params.id}/readings/${params.readingId}/analysis`}
+                        className="rounded-lg bg-amber-600 px-3 py-2 text-sm font-semibold text-white hover:bg-amber-700"
+                      >
+                        先去生成分析
+                      </Link>
+                      <button
+                        onClick={doGenerateLesson}
+                        disabled={generating}
+                        className="rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-50 disabled:opacity-50"
+                      >
+                        {generating ? "AI 生成中…" : "继续生成课件"}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={generateLesson}
+                    disabled={generating}
+                    className="mt-4 w-full rounded-lg bg-orange-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-50"
+                  >
+                    {generating ? "AI 生成中…（可能需要一段时间）" : "生成课件"}
+                  </button>
+                )}
               </>
             )}
           </div>

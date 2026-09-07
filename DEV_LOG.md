@@ -350,3 +350,12 @@ LinguaLab 的核心价值主张：**把用户读过的材料，自动转化成�
 - 新增文章级分析：`src/lib/ai/analysis.ts` 的 `analyzeReadingClass`，基于该文章下教师发布的全部题目、学生作答 + 教师批注 + 学生勾画/提问批注，生成班级总体情况（classSummary）与每个学生的阅读情况（students 列表）。
 - 新增接口 `POST /api/classrooms/[id]/readings/[readingId]/analysis`（仅教师可用），并把学生勾画/批注的 `user_id` 映射到邮箱后喂给 AI。
 - 移除题目级分析接口 `.../questions/[questionId]/analysis` 及题目页内嵌的分析板块，分析职责收敛到文章级。
+
+### 8.4 备课笔记前移 + 辅助课件结合学情
+
+- 阅读页新增顶部「页面说明」引导卡片（按教师/学生分角色）；「生成辅助课件」按钮放在「备课笔记」标题旁。
+- 将「备课笔记」区块从原文下方上移到「班级作答分析」入口之下、原文之上。
+- 新增 `db/migrate_class_analysis.sql`：为 `classroom_readings` 增加 `class_summary`、`class_analysis_at` 两列。
+- 班级作答分析接口生成后回写 `class_summary` 与时间戳到文章记录。
+- 辅助课件 AI 输入新增「班级作答整体情况分析」：`generateLessonContent` 接收 `classSummary`，若存在则让 AI 把学生共性问题/薄弱点纳入讲解侧重与练习。
+- 生成课件前若尚未生成班级作答分析，弹窗提醒老师，并提供「先去生成分析」与「继续生成课件」两个选择。

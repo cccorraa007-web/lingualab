@@ -52,7 +52,7 @@ export async function POST(
 
   const { data: reading, error: rErr } = await supabase
     .from("classroom_readings")
-    .select("title, raw_text")
+    .select("title, raw_text, class_summary, class_analysis_at")
     .eq("id", readingId)
     .eq("classroom_id", id)
     .single();
@@ -124,6 +124,10 @@ export async function POST(
         sentence: q.sentence,
         question: q.question,
       })),
+      classSummary:
+        typeof reading.class_summary === "string"
+          ? reading.class_summary
+          : undefined,
       lang: classroomLang,
       requirement: { format, questionTypes, questionCount, extra, wordExplanation },
     });

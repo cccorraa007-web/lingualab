@@ -140,6 +140,15 @@ export async function POST(
       studentData: studentArray,
       lang,
     });
+
+    await supabase
+      .from("classroom_readings")
+      .update({
+        class_summary: analysis.classSummary,
+        class_analysis_at: new Date().toISOString(),
+      })
+      .eq("id", readingId);
+
     return NextResponse.json({ analysis });
   } catch (e) {
     return NextResponse.json(

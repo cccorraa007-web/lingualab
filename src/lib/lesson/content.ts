@@ -51,6 +51,7 @@ interface LessonInput {
   text: string;
   annotations: { text: string; note: string | null }[];
   questions: { sentence: string; question: string }[];
+  classSummary?: string;
   lang: TargetLang;
   requirement: LessonRequirement;
 }
@@ -72,7 +73,7 @@ function buildUserPrompt(input: LessonInput): string {
     .map((q) => `- 句子：${q.sentence}；题目：${q.question}`)
     .join("\n");
 
-  return `请根据下面的${name}文章，结合教师标注的重点词汇与已发布的课堂问题，生成一份教学课件内容。输出 JSON。
+  return `请根据下面的${name}文章，结合教师标注的重点词汇、已发布的课堂问题，以及班级作答的整体情况分析，生成一份教学课件内容。输出 JSON。
 
 【文章标题】
 ${input.title}
@@ -86,11 +87,15 @@ ${annotations || "（无）"}
 【教师已发布的课堂问题（可参考并融入练习）】
 ${questions || "（无）"}
 
+【班级作答整体情况分析（用于把握学生学情与讲解侧重）】
+${input.classSummary || "（尚未生成）"}
+
 【课件要求】
 - 题型：${typeList || "填空题、选择题"}，题目均匀分配到所选题型
 - 题目总数：约 ${input.requirement.questionCount} 道
 - 交付格式：${input.requirement.format === "pptx" ? "PPT 演示文稿" : "Word 文档"}
 ${input.requirement.extra ? `- 补充要求：${input.requirement.extra}` : ""}
+${input.classSummary ? "- 请结合班级作答整体情况分析，把学生共性问题、薄弱点纳入讲解侧重点与练习。" : ""}
 
 【输出结构 JSON】
 {
