@@ -44,6 +44,8 @@ export async function POST(request: Request) {
       { title, essay, rubric: rubric || undefined },
       lang,
     );
+    const { error: saveError } = await auth.client.from("writing_sessions").insert({ user_id: auth.user.id, lang, title, essay, polish: result.polish, assessment: result.assessment });
+    if (saveError) console.error("保存写作历史失败", saveError.message);
     return NextResponse.json(result);
   } catch (error) {
     console.error("写作润色失败", error);

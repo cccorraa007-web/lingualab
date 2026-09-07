@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getUserClient, unauthorized } from "@/lib/supabase/server-auth";
 import { canManageAssignments, getClassroomRole } from "../../_auth";
+import { notifyAssignmentStudent } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,7 @@ export async function POST(
     return NextResponse.json({ error: "只有教师可以批改作业" }, { status: 403 });
   }
 
-  let body: { submission_id?: unknown; feedback?: unknown; score?: unknown };
+  let body: { submission_id?: unknown; feedback?: unknown; grade?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -24,22 +25,21 @@ export async function POST(
   }
   const submissionId = typeof body.submission_id === "string" ? body.submission_id : "";
   const feedback = typeof body.feedback === "string" ? body.feedback.trim() : "";
-  const score = body.score === "" || body.score === null || body.score === undefined
-    ? null
-    : Number(body.score);
-  if (!submissionId || (!feedback && score === null)) {
-    return NextResponse.json({ error: "请填写反馈或分数" }, { status: 400 });
+  const grade = typeof body.grade === "string" ? body.grade : "";
+  const grades = new Set(["A+", "A", "B+", "B", "C+", "C", "D"]);
+  if (!submissionId || (!feedback && !grade)) {
+    return NextResponse.json({ error: "请填写反馈或等级" }, { status: 400 });
   }
   if (feedback.length > 8_000) {
     return NextResponse.json({ error: "反馈不能超过 8000 个字符" }, { status: 400 });
   }
-  if (score !== null && (!Number.isFinite(score) || score < 0 || score > 100)) {
-    return NextResponse.json({ error: "分数必须在 0 到 100 之间" }, { status: 400 });
+  if (grade && !grades.has(grade)) {
+    return NextResponse.json({ error: "评分等级不正确" }, { status: 400 });
   }
 
   const { data: assignment } = await auth.client
     .from("classroom_assignments")
-    .select("id")
+    .select("id, title")
     .eq("id", assignmentId)
     .eq("classroom_id", classroomId)
     .maybeSingle();
@@ -49,8 +49,7 @@ export async function POST(
     .from("assignment_submissions")
     .update({
       feedback: feedback || null,
-      score,
-      max_score: 100,
+      grade: grade || null,
       graded_by: auth.user.id,
       graded_at: new Date().toISOString(),
     })
@@ -61,5 +60,6 @@ export async function POST(
   if (error || !submission) {
     return NextResponse.json({ error: error?.message || "批改失败" }, { status: 500 });
   }
+  await notifyAssignmentStudent(auth.client, submission.user_id, classroomId, assignmentId, `教师已批改作业：${assignment.title}`);
   return NextResponse.json({ submission });
 }

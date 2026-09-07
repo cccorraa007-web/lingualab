@@ -9,6 +9,7 @@ interface Notification {
   type: string;
   classroom_id: string | null;
   reading_id: string | null;
+  assignment_id: string | null;
   title: string;
   read: boolean;
   created_at: string;
@@ -39,7 +40,9 @@ export default function NotificationsPage() {
       await apiFetch(`/api/notifications/${n.id}/read`, { method: "POST" });
       load();
     }
-    if (n.classroom_id && n.reading_id) {
+    if (n.classroom_id && n.assignment_id) {
+      router.push(`/teaching/${n.classroom_id}/assignments/${n.assignment_id}`);
+    } else if (n.classroom_id && n.reading_id) {
       router.push(`/teaching/${n.classroom_id}/readings/${n.reading_id}`);
     }
   }

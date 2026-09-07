@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
+import Link from "next/link";
 import { apiFetch } from "@/lib/auth";
 import { langMeta, type TargetLang } from "@/lib/language";
 import type { WritingPolishResult } from "@/lib/ai/writing";
@@ -17,6 +18,17 @@ export default function PolishPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    const raw = localStorage.getItem("writing-import");
+    if (!raw) return;
+    try {
+      const value = JSON.parse(raw) as { title?: string; essay?: string; rubric?: string };
+      const timer = window.setTimeout(() => { setTitle(value.title ?? ""); setEssay(value.essay ?? ""); setRubric(value.rubric ?? ""); }, 0);
+      localStorage.removeItem("writing-import");
+      return () => window.clearTimeout(timer);
+    } catch { localStorage.removeItem("writing-import"); }
+  }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -102,6 +114,7 @@ export default function PolishPage() {
     <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
       <p className="text-sm font-semibold text-orange-600">自学模式</p>
       <h1 className="mt-1 text-3xl font-bold tracking-tight text-zinc-900">写作润色</h1>
+      <Link href="/polish/history" className="mt-2 inline-block text-sm font-medium text-orange-600 hover:underline">历史记录 →</Link>
       <p className="mt-2 max-w-3xl text-zinc-600">
         提交{languageName}作文，获得逐条纠错、分维度评分和改进建议。明确的错误可以直接收进错题本。
       </p>

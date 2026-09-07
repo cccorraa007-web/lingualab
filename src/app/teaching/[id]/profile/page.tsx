@@ -21,6 +21,7 @@ interface Submission {
   assignment_id: string;
   submitted_at: string;
   feedback: string | null;
+  grade: string | null;
   score: number | null;
   graded_at: string | null;
 }
@@ -46,18 +47,21 @@ export default function ClassroomProfilePage() {
   const [readings, setReadings] = useState<Reading[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [topThree, setTopThree] = useState<{ email: string; submitted: number; on_time: number; grade_distribution: Record<string, number> }[]>([]);
 
   useEffect(() => {
     Promise.all([
       apiFetch(`/api/classrooms/${params.id}`).then((r) => r.json()),
       apiFetch(`/api/classrooms/${params.id}/assignments`).then((r) => r.json()),
       apiFetch(`/api/classrooms/${params.id}/readings`).then((r) => r.json()),
+      apiFetch(`/api/classrooms/${params.id}/assignments/stats`).then((r) => r.json()),
     ])
-      .then(([cls, asg, rdg]) => {
+      .then(([cls, asg, rdg, stats]) => {
         setMembers(cls.members ?? []);
         setAssignments(asg.assignments ?? []);
         setSubmissions(asg.submissions ?? []);
         setReadings(rdg.readings ?? []);
+        setTopThree(stats.top_three ?? []);
       })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)))
       .finally(() => setLoading(false));
@@ -73,20 +77,14 @@ export default function ClassroomProfilePage() {
   ).length;
   const graded = assignments.filter((a) => {
     const s = submissionByAssignment.get(a.id);
-    return s && (s.feedback != null || s.score != null);
+    return s && (s.feedback != null || s.grade != null || s.score != null);
   }).length;
   const onTime = assignments.filter((a) => {
     const s = submissionByAssignment.get(a.id);
     if (!s) return false;
     return new Date(s.submitted_at).getTime() <= new Date(a.ends_at).getTime();
   }).length;
-  const scores = assignments
-    .map((a) => submissionByAssignment.get(a.id)?.score)
-    .filter((s): s is number => typeof s === "number");
-  const averageScore =
-    scores.length > 0
-      ? Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 10) / 10
-      : null;
+  const gradeDistribution = submissions.reduce<Record<string, number>>((result, item) => { if (item.grade) result[item.grade] = (result[item.grade] ?? 0) + 1; return result; }, {});
 
   const totalReadings = readings.length;
   const doneReadings = readings.filter((r) => r.done).length;
@@ -125,8 +123,8 @@ export default function ClassroomProfilePage() {
               <StatCard label="按时提交" value={`${onTime}`} />
               <StatCard label="已批改" value={`${graded}`} />
               <StatCard
-                label="平均分"
-                value={averageScore != null ? String(averageScore) : "—"}
+                label="等级分布"
+                value={Object.entries(gradeDistribution).map(([grade, count]) => `${grade}×${count}`).join(" ") || "—"}
               />
             </div>
             <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -138,9 +136,7 @@ export default function ClassroomProfilePage() {
           {/* 班级综合排行 */}
           <section>
             <h2 className="text-lg font-semibold text-zinc-900">班级综合排行</h2>
-            <div className="mt-3 rounded-xl border border-dashed border-zinc-200 p-8 text-center text-sm text-zinc-400">
-              班级综合排行前三即将上线（由笔头作业模块提供数据）。
-            </div>
+            <div className="mt-3 space-y-2">{topThree.length === 0 ? <div className="rounded-xl border border-dashed p-8 text-center text-sm text-zinc-400">暂无排行数据</div> : topThree.map((student, index) => <div key={`${student.email}-${index}`} className="flex items-center justify-between rounded-xl border border-zinc-100 bg-white p-4"><span className="font-medium text-zinc-800">{index + 1}. {student.email}</span><span className="text-xs text-zinc-500">按时 {student.on_time} · 已交 {student.submitted} · {Object.entries(student.grade_distribution).map(([g, c]) => `${g}×${c}`).join(" ") || "未评分"}</span></div>)}</div>
           </section>
 
           {/* 我的作业提交情况 */}
@@ -156,7 +152,7 @@ export default function ClassroomProfilePage() {
                     s &&
                     new Date(s.submitted_at).getTime() >
                       new Date(a.ends_at).getTime();
-                  const graded = s && (s.feedback != null || s.score != null);
+                  const graded = s && (s.feedback != null || s.grade != null || s.score != null);
                   return (
                     <div
                       key={a.id}
@@ -190,7 +186,7 @@ export default function ClassroomProfilePage() {
                         )}
                         {graded ? (
                           <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-semibold text-blue-700">
-                            {s?.score != null ? `评分 ${s.score}` : "已批改"}
+                            {s?.grade ? `评分 ${s.grade}` : s?.score != null ? `历史评分 ${s.score}` : "已批改"}
                           </span>
                         ) : (
                           s && (

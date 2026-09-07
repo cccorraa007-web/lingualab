@@ -1,0 +1,7 @@
+"use client";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { apiFetch } from "@/lib/auth";
+import { langMeta } from "@/lib/language";
+interface Session { id: string; lang: "es" | "en"; title: string; assessment: { total_score?: number; max_score?: number }; created_at: string; }
+export default function WritingHistoryPage() { const [sessions, setSessions] = useState<Session[]>([]); const [error, setError] = useState(""); useEffect(() => { apiFetch("/api/writing-sessions").then(async (r) => { const d = await r.json(); if (!r.ok) throw new Error(d.error); setSessions(d.sessions ?? []); }).catch((e) => setError(e instanceof Error ? e.message : "加载失败")); }, []); return <div className="mx-auto max-w-4xl px-4 py-10"><Link href="/polish" className="text-sm text-zinc-500">← 返回写作润色</Link><h1 className="mt-3 text-3xl font-bold">写作历史</h1>{error && <p className="mt-4 text-red-600">{error}</p>}<div className="mt-6 space-y-2">{sessions.length === 0 ? <div className="rounded-xl border border-dashed p-8 text-center text-zinc-400">暂无记录</div> : sessions.map((s) => <Link key={s.id} href={`/polish/history/${s.id}`} className="flex items-center justify-between rounded-xl border border-zinc-100 bg-white p-4 hover:shadow-md"><div><p className="font-medium">{s.title}</p><p className="mt-1 text-xs text-zinc-400">{new Date(s.created_at).toLocaleString("zh-CN")} · {langMeta(s.lang).label}</p></div><span className="font-semibold text-orange-600">{s.assessment?.total_score ?? "—"}/{s.assessment?.max_score ?? "—"}</span></Link>)}</div></div>; }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getUserClient, unauthorized } from "@/lib/supabase/server-auth";
 import { getClassroomRole } from "../../_auth";
+import { notifyAssignmentTeachers } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 const BUCKET = "assignment-files";
@@ -42,7 +43,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
   }
 
-  const { data: assignment } = await auth.client.from("classroom_assignments").select("id, ends_at").eq("id", assignmentId).eq("classroom_id", classroomId).maybeSingle();
+  const { data: assignment } = await auth.client.from("classroom_assignments").select("id, title, ends_at").eq("id", assignmentId).eq("classroom_id", classroomId).maybeSingle();
   if (!assignment) return NextResponse.json({ error: "作业不存在" }, { status: 404 });
   const { data: recipient } = await auth.client.from("assignment_recipients").select("id").eq("assignment_id", assignmentId).eq("user_id", auth.user.id).maybeSingle();
   if (!recipient) return NextResponse.json({ error: "这份作业未发布给你" }, { status: 403 });
@@ -63,7 +64,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   const mediaPaths = files.length ? uploadedPaths : oldPaths;
-  const values = { content: content || null, media_paths: mediaPaths, ...(files.length ? { ocr_text: null } : {}), feedback: null, score: null, graded_by: null, graded_at: null };
+  const values = { content: content || null, media_paths: mediaPaths, ...(files.length ? { ocr_text: null } : {}), feedback: null, grade: null, score: null, graded_by: null, graded_at: null };
   const mutation = existing
     ? auth.client.from("assignment_submissions").update(values).eq("id", existing.id).eq("user_id", auth.user.id).select().single()
     : auth.client.from("assignment_submissions").insert({ assignment_id: assignmentId, user_id: auth.user.id, ...values }).select().single();
@@ -73,5 +74,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: error?.message || "提交失败" }, { status: 500 });
   }
   if (files.length && oldPaths.length) await auth.client.storage.from(BUCKET).remove(oldPaths);
+  await notifyAssignmentTeachers(auth.client, classroomId, assignmentId, `学生提交了作业：${assignment.title}`);
   return NextResponse.json({ submission, late: new Date(submission.submitted_at).getTime() > new Date(assignment.ends_at).getTime() });
 }
