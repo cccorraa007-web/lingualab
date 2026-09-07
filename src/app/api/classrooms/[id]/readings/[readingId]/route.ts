@@ -53,6 +53,34 @@ export async function GET(
     return NextResponse.json({ error: aErr.message }, { status: 500 });
   }
 
+  let studentAnnotations: { email: string; text: string; note: string | null }[] = [];
+  if (role === "teacher") {
+    const { data: stuAnno } = await supabase
+      .from("reading_annotations")
+      .select("user_id, text, note")
+      .eq("reading_id", readingId)
+      .neq("user_id", auth.user.id)
+      .order("created_at", { ascending: true });
+
+    const userIds = [...new Set((stuAnno ?? []).map((a) => a.user_id))];
+    const emailByUser = new Map<string, string>();
+    if (userIds.length > 0) {
+      const { data: members } = await supabase
+        .from("classroom_members")
+        .select("user_id, email")
+        .eq("classroom_id", id)
+        .in("user_id", userIds);
+      for (const m of members ?? []) {
+        if (m.email) emailByUser.set(m.user_id, m.email);
+      }
+    }
+    studentAnnotations = (stuAnno ?? []).map((a) => ({
+      email: emailByUser.get(a.user_id) ?? "学生",
+      text: a.text,
+      note: a.note ?? null,
+    }));
+  }
+
   const { data: existingMaterial } = await supabase
     .from("materials")
     .select("id")
@@ -90,6 +118,7 @@ export async function GET(
   return NextResponse.json({
     reading,
     annotations: annotations ?? [],
+    student_annotations: studentAnnotations,
     questions: questions ?? [],
     answers,
     added_to_corpus: addedToCorpus,

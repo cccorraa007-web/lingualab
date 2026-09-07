@@ -317,14 +317,6 @@ export default function ClassroomAssignmentsPage() {
                       </span>
                     </div>
                   </Link>
-                  {myRole === "teacher" && (
-                    <Link
-                      href={`/teaching/${params.id}/readings/${r.id}?prep=1`}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg bg-orange-600 px-3 py-1.5 text-xs font-semibold text-white opacity-0 shadow transition group-hover:opacity-100"
-                    >
-                      进入备课
-                    </Link>
-                  )}
                 </div>
               );
             })

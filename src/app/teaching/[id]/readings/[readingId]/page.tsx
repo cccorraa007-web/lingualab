@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/auth";
 
 interface Reading {
@@ -109,8 +109,6 @@ interface ToolbarState {
 export default function ReadingPage() {
   const params = useParams<{ id: string; readingId: string }>();
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const prepMode = searchParams.get("prep") === "1";
   const [reading, setReading] = useState<Reading | null>(null);
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -123,29 +121,10 @@ export default function ReadingPage() {
   const [questionText, setQuestionText] = useState("");
   const [addingToCorpus, setAddingToCorpus] = useState(false);
   const [addedToCorpus, setAddedToCorpus] = useState(false);
+  const [addingToLibrary, setAddingToLibrary] = useState(false);
+  const [addedToLibrary, setAddedToLibrary] = useState(false);
   const [error, setError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
-
-  const [showLesson, setShowLesson] = useState(false);
-  const [lessonFormat, setLessonFormat] = useState<"pptx" | "docx">("pptx");
-  const [lessonTypes, setLessonTypes] = useState<string[]>(["blank", "choice"]);
-  const [lessonCount, setLessonCount] = useState(10);
-  const [lessonExtra, setLessonExtra] = useState("");
-  const [lessonWordExplanation, setLessonWordExplanation] = useState(false);
-  const [generating, setGenerating] = useState(false);
-  const [lessonResult, setLessonResult] = useState<{
-    filename: string;
-    dataUrl: string;
-  } | null>(null);
-  const [lessonError, setLessonError] = useState("");
-  const [confirmNoAnalysis, setConfirmNoAnalysis] = useState(false);
-
-  const LESSON_TYPES = [
-    { value: "blank", label: "填空题" },
-    { value: "choice", label: "选择题" },
-    { value: "truefalse", label: "判断题" },
-    { value: "qa", label: "问答题" },
-  ];
 
   useEffect(() => {
     apiFetch(`/api/classrooms/${params.id}/readings/${params.readingId}`)
@@ -277,59 +256,28 @@ export default function ReadingPage() {
     }
   }
 
-  function toggleLessonType(t: string) {
-    setLessonTypes((prev) =>
-      prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t],
-    );
-  }
-
-  async function generateLesson() {
-    if (lessonTypes.length === 0) {
-      setLessonError("请至少选择一种题型");
-      return;
-    }
-    if (!reading?.class_analysis_at) {
-      setLessonError("");
-      setConfirmNoAnalysis(true);
-      return;
-    }
-    await doGenerateLesson();
-  }
-
-  function openLesson() {
-    setConfirmNoAnalysis(false);
-    setLessonResult(null);
-    setLessonError("");
-    setShowLesson(true);
-  }
-
-  async function doGenerateLesson() {
-    setConfirmNoAnalysis(false);
-    setGenerating(true);
-    setLessonError("");
-    setLessonResult(null);
+  async function addToLibrary() {
+    setAddingToLibrary(true);
+    setError("");
     try {
       const res = await apiFetch(
-        `/api/classrooms/${params.id}/readings/${params.readingId}/lesson`,
+        `/api/classrooms/${params.id}/library/items`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            format: lessonFormat,
-            questionTypes: lessonTypes,
-            questionCount: lessonCount,
-            extra: lessonExtra,
-            wordExplanation: lessonWordExplanation,
+            source: "reading",
+            source_id: params.readingId,
           }),
         },
       );
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "生成失败");
-      setLessonResult({ filename: data.filename, dataUrl: data.dataUrl });
+      if (!res.ok) throw new Error(data.error || "添加失败");
+      setAddedToLibrary(true);
     } catch (e) {
-      setLessonError(e instanceof Error ? e.message : String(e));
+      setError(e instanceof Error ? e.message : String(e));
     } finally {
-      setGenerating(false);
+      setAddingToLibrary(false);
     }
   }
 
@@ -342,7 +290,6 @@ export default function ReadingPage() {
   }
 
   const isTeacher = myRole === "teacher";
-  const showPrep = prepMode && isTeacher;
   const rules = buildRules(annotations, questions);
   const hasNotes = annotations.length > 0;
   const allAnswered =
@@ -355,14 +302,6 @@ export default function ReadingPage() {
         <h3 className="text-sm font-semibold text-zinc-700">
           {isTeacher ? "备课笔记" : "我的勾画与批注"}
         </h3>
-        {isTeacher && (
-          <button
-            onClick={openLesson}
-            className="rounded-lg bg-orange-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-orange-700"
-          >
-            生成辅助课件
-          </button>
-        )}
       </div>
       <ul className="mt-2 space-y-2">
         {annotations.map((a) => (
@@ -430,11 +369,11 @@ export default function ReadingPage() {
         href={`/teaching/${params.id}/assignments`}
         className="text-sm text-zinc-500 hover:text-orange-600"
       >
-        ← {showPrep ? "退出备课" : "返回课后作业"}
+        ← 返回课后作业
       </Link>
 
       {/* 学习引导（学生） */}
-      {!isTeacher && !showPrep && (
+      {!isTeacher && (
         <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50/50 p-4">
           <p className="font-semibold text-blue-700">学习引导</p>
           <ul className="mt-2 space-y-1.5 text-sm text-zinc-600">
@@ -478,33 +417,36 @@ export default function ReadingPage() {
         </div>
       )}
 
-      {/* 页面功能引导（教师） */}
-      {isTeacher && !showPrep && (
+      {/* 备课提示（教师） */}
+      {isTeacher && (
         <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50/50 p-4">
-          <p className="font-semibold text-blue-700">页面说明</p>
-          <ul className="mt-2 space-y-1.5 text-sm text-zinc-600">
-            <li>
-              <b>选中原文</b>可添加题目（发布后学生作答）或加入备课笔记。
-            </li>
-            <li>
-              <b>点进题目</b>可查看学生作答并批改留言。
-            </li>
-            <li>
-              顶部「<b>班级作答分析</b>」可查看班级总体与每个学生情况；备课笔记旁「
-              <b>生成辅助课件</b>」可基于批注生成可下载课件。
-            </li>
-          </ul>
-        </div>
-      )}
-
-      {showPrep && (
-        <div className="mt-4 rounded-xl border border-orange-200 bg-orange-50/60 p-4">
-          <p className="font-semibold text-orange-700">备课模式</p>
-          <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-zinc-600">
-            <li>选中原文，可<b>添加题目</b>（发布后学生可见）或<b>勾画词汇/批注</b>（仅备课用，学生不可见）。</li>
-            <li>勾画与批注会作为 AI 生成教学课件的重点依据。</li>
-            <li>完成后点击右上角「辅助备课」，选择格式与题型生成课件。</li>
-          </ol>
+          <p className="font-semibold text-blue-700">备课提示</p>
+          <p className="mt-1 text-sm text-zinc-600">
+            把文章添加到备课资料库，即可汇总<b>你的批注、学生作答、学生提问与班级作答分析</b>，并据此生成针对性课件。
+          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {addedToLibrary ? (
+              <>
+                <span className="rounded-lg bg-emerald-100 px-3 py-2 text-sm font-medium text-emerald-700">
+                  已加入备课资料库
+                </span>
+                <Link
+                  href={`/teaching/${params.id}/speaking`}
+                  className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700"
+                >
+                  去备课 →
+                </Link>
+              </>
+            ) : (
+              <button
+                onClick={addToLibrary}
+                disabled={addingToLibrary}
+                className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-50"
+              >
+                {addingToLibrary ? "添加中…" : "添加到备课资料库"}
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -512,25 +454,15 @@ export default function ReadingPage() {
         <h1 className="text-3xl font-bold tracking-tight text-zinc-900">
           {reading.title}
         </h1>
-        {showPrep && (
-          <button
-            onClick={openLesson}
-            className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700"
-          >
-            辅助备课
-          </button>
-        )}
       </div>
       <p className="mt-1 text-xs text-zinc-400">
-        {showPrep
-          ? "选中原文句子可勾画、批注或添加题目；批注作为 AI 生成课件的依据"
-          : isTeacher
-            ? "选中原文可添加题目（发布后学生作答）或加入备课笔记；点进题目查看作答与班级分析"
-            : "选中原文可勾画词汇或添加批注；点进题目进行作答"}
+        {isTeacher
+          ? "选中原文可添加题目（发布后学生作答）或加入备课笔记；点进题目查看作答与班级分析"
+          : "选中原文可勾画词汇或添加批注；点进题目进行作答"}
       </p>
 
       {/* 班级作答分析（教师） */}
-      {isTeacher && !showPrep && (
+      {isTeacher && (
         <div className="mt-4">
           <Link
             href={`/teaching/${params.id}/readings/${params.readingId}/analysis`}
@@ -660,169 +592,6 @@ export default function ReadingPage() {
               </button>
             </div>
           )}
-        </div>
-      )}
-
-      {showLesson && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold text-zinc-900">辅助备课</h2>
-              <button
-                onClick={() => setShowLesson(false)}
-                className="text-zinc-400 hover:text-zinc-600"
-              >
-                关闭
-              </button>
-            </div>
-
-            {lessonResult ? (
-              <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-                <p className="text-sm font-medium text-emerald-700">
-                  课件已生成
-                </p>
-                <p className="mt-1 break-all text-xs text-zinc-500">
-                  {lessonResult.filename}
-                </p>
-                <a
-                  href={lessonResult.dataUrl}
-                  download={lessonResult.filename}
-                  className="mt-3 inline-block rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
-                >
-                  下载课件
-                </a>
-                <button
-                  onClick={() => {
-                    setLessonResult(null);
-                    setShowLesson(false);
-                  }}
-                  className="ml-2 text-sm text-zinc-500 hover:text-zinc-700"
-                >
-                  完成
-                </button>
-              </div>
-            ) : (
-              <>
-                <div className="mt-4">
-                  <p className="text-sm font-semibold text-zinc-700">文件格式</p>
-                  <div className="mt-2 flex gap-2">
-                    {(["pptx", "docx"] as const).map((f) => (
-                      <button
-                        key={f}
-                        onClick={() => setLessonFormat(f)}
-                        className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium ${
-                          lessonFormat === f
-                            ? "border-orange-500 bg-orange-50 text-orange-700"
-                            : "border-zinc-200 text-zinc-600 hover:bg-zinc-50"
-                        }`}
-                      >
-                        {f === "pptx" ? "PPT 演示文稿" : "Word 文档"}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="mt-4">
-                  <p className="text-sm font-semibold text-zinc-700">包含题型</p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {LESSON_TYPES.map((t) => (
-                      <button
-                        key={t.value}
-                        onClick={() => toggleLessonType(t.value)}
-                        className={`rounded-lg border px-3 py-1.5 text-sm ${
-                          lessonTypes.includes(t.value)
-                            ? "border-orange-500 bg-orange-50 text-orange-700"
-                            : "border-zinc-200 text-zinc-600 hover:bg-zinc-50"
-                        }`}
-                      >
-                        {t.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="mt-4">
-                  <p className="text-sm font-semibold text-zinc-700">题目数量</p>
-                  <input
-                    type="number"
-                    min={1}
-                    max={50}
-                    value={lessonCount}
-                    onChange={(e) =>
-                      setLessonCount(Number(e.target.value) || 1)
-                    }
-                    className="mt-2 w-28 rounded-lg border border-zinc-200 px-3 py-1.5 text-sm"
-                  />
-                </div>
-
-                <label className="mt-4 flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={lessonWordExplanation}
-                    onChange={(e) => setLessonWordExplanation(e.target.checked)}
-                    className="h-4 w-4 accent-orange-600"
-                  />
-                  <span className="text-sm font-semibold text-zinc-700">
-                    需要单词讲解
-                  </span>
-                  <span className="text-xs text-zinc-400">
-                    （为勾画的单词生成词性、释义、例句；PPT 一词一页，Word 用字号区分）
-                  </span>
-                </label>
-
-                <div className="mt-4">
-                  <p className="text-sm font-semibold text-zinc-700">
-                    补充需求（可选）
-                  </p>
-                  <textarea
-                    value={lessonExtra}
-                    onChange={(e) => setLessonExtra(e.target.value)}
-                    placeholder="例如：侧重语法点、加入课堂讨论环节…"
-                    rows={3}
-                    className="mt-2 w-full rounded-lg border border-zinc-200 p-2 text-sm outline-none focus:border-orange-400"
-                  />
-                </div>
-
-                {lessonError && (
-                  <p className="mt-3 text-sm text-red-600">{lessonError}</p>
-                )}
-
-                {confirmNoAnalysis ? (
-                  <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
-                    <p className="text-sm font-semibold text-amber-800">
-                      尚未生成班级作答分析
-                    </p>
-                    <p className="mt-1 text-sm text-amber-700">
-                      课件将结合班级作答的整体情况分析（学生共性问题、薄弱点）来调整讲解侧重。是否先生成分析，或继续直接生成课件？
-                    </p>
-                    <div className="mt-3 flex gap-2">
-                      <Link
-                        href={`/teaching/${params.id}/readings/${params.readingId}/analysis`}
-                        className="rounded-lg bg-amber-600 px-3 py-2 text-sm font-semibold text-white hover:bg-amber-700"
-                      >
-                        先去生成分析
-                      </Link>
-                      <button
-                        onClick={doGenerateLesson}
-                        disabled={generating}
-                        className="rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-50 disabled:opacity-50"
-                      >
-                        {generating ? "AI 生成中…" : "继续生成课件"}
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <button
-                    onClick={generateLesson}
-                    disabled={generating}
-                    className="mt-4 w-full rounded-lg bg-orange-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-50"
-                  >
-                    {generating ? "AI 生成中…（可能需要一段时间）" : "生成课件"}
-                  </button>
-                )}
-              </>
-            )}
-          </div>
         </div>
       )}
     </div>
