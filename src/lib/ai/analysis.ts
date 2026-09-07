@@ -1,84 +1,94 @@
 import { chatJSON } from "@/lib/ai/deepseek";
 import { langMeta, type TargetLang } from "@/lib/language";
 
-export interface ClassAnalysis {
-  frequentWords: { word: string; count: number }[];
-  similarIssues: string[];
-  teachingFocus: string[];
+export interface StudentReadingStatus {
+  email: string;
+  summary: string;
 }
 
-export async function analyzeClassAnswers(input: {
-  question: string;
-  sentence: string;
-  answers: { email: string; answer: string }[];
-  annotationWords: string[];
+export interface ReadingClassAnalysis {
+  classSummary: string;
+  students: StudentReadingStatus[];
+}
+
+export async function analyzeReadingClass(input: {
+  title: string;
+  questions: { sentence: string; question: string }[];
+  studentData: {
+    email: string;
+    answers: { question: string; answer: string; feedback: string }[];
+    annotations: { text: string; note: string }[];
+  }[];
   lang: TargetLang;
-}): Promise<ClassAnalysis> {
+}): Promise<ReadingClassAnalysis> {
   const name = langMeta(input.lang).label;
 
-  // 高频勾画词：直接按批注词频统计（精确，无需 AI）。
-  const freq = new Map<string, string>();
-  for (const w of input.annotationWords) {
-    const key = w.trim();
-    if (!key) continue;
-    const lower = key.toLowerCase();
-    if (!freq.has(lower)) freq.set(lower, key);
-  }
-  const counts = new Map<string, number>();
-  for (const w of input.annotationWords) {
-    const key = w.trim().toLowerCase();
-    if (key) counts.set(key, (counts.get(key) ?? 0) + 1);
-  }
-  const frequentWords = [...counts.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 10)
-    .map(([lower, count]) => ({ word: freq.get(lower) ?? lower, count }));
-
-  // 共性错误 / 讲解侧重点：交给 AI 根据学生作答 + 高频词分析。
-  const answerText = input.answers
-    .map((a) => `${a.email}：${a.answer}`)
+  const questionsText = input.questions
+    .map((q, i) => `${i + 1}. ${q.question}`)
     .join("\n");
-  const topWords = frequentWords.map((w) => w.word).join("、");
+
+  const studentText = input.studentData
+    .map((s) => {
+      const answers = s.answers
+        .map(
+          (a) =>
+            `- 题目：${a.question}\n  回答：${a.answer}${a.feedback ? `\n  教师批注：${a.feedback}` : ""}`,
+        )
+        .join("\n");
+      const annotations = s.annotations
+        .map((a) => `- ${a.text}${a.note ? `（${a.note}）` : ""}`)
+        .join("\n");
+      return `【学生 ${s.email}】\n作答：\n${answers || "（未作答）"}\n勾画/提问批注：\n${annotations || "（无）"}`;
+    })
+    .join("\n\n");
 
   const result = await chatJSON<{
-    similarIssues?: string[];
-    teachingFocus?: string[];
+    classSummary?: string;
+    students?: { email?: string; summary?: string }[];
   }>([
     {
       role: "system",
-      content: `你是一名${name}教师助手，正在分析一个班级学生对某道题目的作答情况，帮教师快速定位共性问题、确定讲解侧重点。只输出合法 JSON，不要输出多余文字。`,
+      content: `你是一名${name}教师助手，负责分析一个班级对某篇必读文章的阅读与作答情况。你只输出合法 JSON，不输出多余文字。`,
     },
     {
       role: "user",
-      content: `请根据以下信息做班级作答情况分析。
+      content: `请根据下面的信息，生成班级阅读情况分析。
 
-【题目句子】
-${input.sentence}
+【文章】${input.title}
 
-【题目】
-${input.question}
+【老师发布的题目】
+${questionsText || "（无题目）"}
 
-【学生作答（逐条）】
-${answerText || "（暂无学生作答）"}
-
-【学生高频勾画的词】
-${topWords || "（无）"}
+【各学生的作答与提问批注】
+${studentText || "（暂无学生数据）"}
 
 请输出 JSON：
 {
-  "similarIssues": ["学生普遍存在的共性问题或错误类型（中文，2~5 条）"],
-  "teachingFocus": ["建议的讲解侧重点（中文，2~5 条，结合高频词与共性错误）"]
-}`,
+  "classSummary": "班级总体情况（中文，2~4 条要点，概括作答完成度、共性表现、需注意的点）",
+  "students": [
+    {"email": "学生邮箱", "summary": "该学生的必读文章阅读情况（中文：是否作答、作答质量、教师批注、提问疑惑等，2~3 句）"}
+  ]
+}
+
+要求：
+- students 数组里 email 必须与上面给出的学生邮箱完全一致，一一对应，不要遗漏。
+- 只输出 JSON，不要 markdown 代码块。`,
     },
   ]);
 
   return {
-    frequentWords,
-    similarIssues: Array.isArray(result.similarIssues)
-      ? result.similarIssues.filter((s): s is string => typeof s === "string")
-      : [],
-    teachingFocus: Array.isArray(result.teachingFocus)
-      ? result.teachingFocus.filter((s): s is string => typeof s === "string")
+    classSummary:
+      typeof result.classSummary === "string" ? result.classSummary : "",
+    students: Array.isArray(result.students)
+      ? result.students
+          .filter(
+            (s): s is { email: string; summary: string } =>
+              Boolean(s) && typeof s.email === "string",
+          )
+          .map((s) => ({
+            email: s.email,
+            summary: typeof s.summary === "string" ? s.summary : "",
+          }))
       : [],
   };
 }

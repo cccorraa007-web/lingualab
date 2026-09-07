@@ -501,6 +501,28 @@ export default function ReadingPage() {
         </div>
       )}
 
+      {/* 班级作答分析（教师） */}
+      {isTeacher && !showPrep && (
+        <div className="mt-6">
+          <Link
+            href={`/teaching/${params.id}/readings/${params.readingId}/analysis`}
+            className="block rounded-xl border border-zinc-100 bg-white p-4 transition hover:shadow-md"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-semibold text-zinc-700">
+                  班级作答分析
+                </h3>
+                <p className="mt-1 text-xs text-zinc-400">
+                  基于学生作答、提问批注与教师批注，生成班级总体情况与每个学生的阅读情况
+                </p>
+              </div>
+              <span className="text-sm text-orange-600">进入 →</span>
+            </div>
+          </Link>
+        </div>
+      )}
+
       {/* 工具栏 */}
       {toolbar && (
         <div

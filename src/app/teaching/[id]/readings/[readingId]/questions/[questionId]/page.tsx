@@ -25,12 +25,6 @@ interface Student {
   email: string | null;
 }
 
-interface Analysis {
-  frequentWords: { word: string; count: number }[];
-  similarIssues: string[];
-  teachingFocus: string[];
-}
-
 export default function QuestionDetailPage() {
   const params = useParams<{
     id: string;
@@ -46,8 +40,6 @@ export default function QuestionDetailPage() {
   const [myAnswer, setMyAnswer] = useState<Answer | null>(null);
   const [draft, setDraft] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [analysis, setAnalysis] = useState<Analysis | null>(null);
-  const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -107,24 +99,6 @@ export default function QuestionDetailPage() {
       setError(e instanceof Error ? e.message : "提交失败");
     } finally {
       setSubmitting(false);
-    }
-  }
-
-  async function analyze() {
-    setAnalyzing(true);
-    setError("");
-    try {
-      const res = await apiFetch(
-        `/api/classrooms/${params.id}/readings/${params.readingId}/questions/${params.questionId}/analysis`,
-        { method: "POST" },
-      );
-      const d = await res.json();
-      if (!res.ok) throw new Error(d.error || "分析失败");
-      setAnalysis(d.analysis);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "分析失败");
-    } finally {
-      setAnalyzing(false);
     }
   }
 
@@ -217,65 +191,6 @@ export default function QuestionDetailPage() {
               </div>
             </section>
           )}
-
-          <section className="rounded-2xl border border-zinc-100 bg-white p-5">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-zinc-900">班级作答分析</h2>
-              <button
-                onClick={analyze}
-                disabled={analyzing}
-                className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-50"
-              >
-                {analyzing ? "分析中…" : "生成分析"}
-              </button>
-            </div>
-
-            {analysis && (
-              <div className="mt-4 space-y-4">
-                {analysis.frequentWords.length > 0 && (
-                  <div>
-                    <p className="text-sm font-semibold text-zinc-700">
-                      高频勾画词
-                    </p>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {analysis.frequentWords.map((w) => (
-                        <span
-                          key={w.word}
-                          className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700"
-                        >
-                          {w.word}（{w.count} 次）
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {analysis.similarIssues.length > 0 && (
-                  <div>
-                    <p className="text-sm font-semibold text-zinc-700">
-                      共性错误 / 同类型问题
-                    </p>
-                    <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-zinc-600">
-                      {analysis.similarIssues.map((s, i) => (
-                        <li key={i}>{s}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                {analysis.teachingFocus.length > 0 && (
-                  <div>
-                    <p className="text-sm font-semibold text-zinc-700">
-                      讲解侧重点推荐
-                    </p>
-                    <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-zinc-600">
-                      {analysis.teachingFocus.map((s, i) => (
-                        <li key={i}>{s}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            )}
-          </section>
         </div>
       ) : (
         <div className="mt-6">
