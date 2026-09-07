@@ -117,3 +117,96 @@
 - 改完执行 `npm run lint` 和 `npm run build` 确认通过。
 - 迁移 SQL 写进 `db/` 下新文件，并同步更新 `DEV_LOG.md`。
 - 附件路径务必统一 `{assignment_id}/{user_id}/{文件名}`，别破坏现有存储策略对路径段的假设。
+
+---
+
+# 新增三大功能（全部「类比必读文章」模块，请照抄其结构）
+
+> 以下三块是笔头作业接下来要补的核心能力，都已有现成的「必读文章」实现可直接对照。
+> 「必读文章」模块是我方实现并已上线，代码路径如下，动手前请先通读一遍：
+> - 多级页面：`src/app/teaching/[id]/readings/...`（列表在 `src/app/teaching/[id]/assignments/page.tsx` 里的「必读文章」区，详情 `readings/[readingId]/page.tsx`，题目 `questions/[questionId]/page.tsx`，批改 `questions/[questionId]/answers/[answerId]/page.tsx`，分析 `readings/[readingId]/analysis/page.tsx`）
+> - 通知系统：`src/lib/notifications.ts` + `db/migrate_notifications.sql` + `src/app/api/notifications/route.ts` + `src/app/notifications/page.tsx`
+> - 作答分析：`src/lib/ai/analysis.ts`（`analyzeReadingClass`）+ `src/app/api/classrooms/[id]/readings/[readingId]/analysis/route.ts` + 上面的 analysis 页面
+>
+> 笔头作业现有相关文件（你实现的部分）：`WrittenAssignments.tsx`、`assignments/route.ts`、`[assignmentId]/submit|review|ocr/route.ts`、`db/migrate_assignments.sql`、`db/migrate_assignments_attachments.sql`、`db/migrate_assignments_grade.sql`。
+
+---
+
+## 功能一：笔头作业多级页面（类比必读文章）
+
+### 目标结构
+| 层级 | 必读文章（对照） | 笔头作业（要做） |
+|---|---|---|
+| 列表 | `assignments/page.tsx` 里「必读文章」标题卡片 | 同文件里「笔头作业」标题卡片（`WrittenAssignments` 只保留列表） |
+| 详情 | `/teaching/[id]/readings/[readingId]` | 新建 `/teaching/[id]/assignments/[assignmentId]` |
+| 单生批改 | `/teaching/[id]/readings/[readingId]/questions/[questionId]/answers/[answerId]` | 新建 `/teaching/[id]/assignments/[assignmentId]/[userId]`（或按 submission id） |
+| 分析 | `/teaching/[id]/readings/[readingId]/analysis` | 新建 `/teaching/[id]/assignments/[assignmentId]/analysis`（见功能三） |
+
+### 要点
+- **列表页**：`WrittenAssignments.tsx` 现在把「列表 + 发布 + 每个作业详情 + 提交 + 批改 + OCR」全平铺在一个组件里，请拆成「标题卡片列表」+「发布表单」，卡片点击跳详情页。
+- **详情页（教师端）**：作业正文 + 教师附件；学生列表分「已提交 / 未提交」两组，已提交组显示是否已批改/评分，点击进入单生批改页。
+- **详情页（学生端）**：提交表单（文字 + 附件）+ 自己的提交、评分、反馈。
+- **单生批改页**：该生提交正文 + 附件 + OCR + 等级评分 + 反馈保存；保存后返回详情页能看到最新评分。
+- 数据与接口已具备（`GET .../assignments` 已返回 `assignments + submissions + recipients + my_role + server_now`，`submit/review/ocr` 已存在），主要是**拆页面**，可新增 `GET .../assignments/[assignmentId]` 详情接口让详情页更干净。
+- 此条即为上文「问题三」的正式落地（问题四的等级制评分一并在这里的批改页做）。
+
+---
+
+## 功能二：笔头作业通知系统（类比必读文章）
+
+### 必读文章的通知触发链路（照抄）
+1. 学生提交作答 → `questions/[questionId]/answer/route.ts` 里调 `notifyTeachers(...)` 通知老师。
+2. 老师批改 → `questions/[questionId]/answers/[answerId]/feedback/route.ts` 里调 `notifyStudent(...)` 通知学生。
+- 库函数：`src/lib/notifications.ts`（`notifyTeachers` / `notifyStudent`）。
+- 数据表：`notifications`（`user_id / type / classroom_id / reading_id / title / read / created_at`，`type` 目前 `check (type in ('submission','feedback'))`）。
+- 前端：`src/app/api/notifications/route.ts`（列表 + 全部已读）、`src/app/notifications/page.tsx`（点击 `open()` 跳 `/teaching/{classroom_id}/readings/{reading_id}`）。
+
+### 笔头作业要做三条通知
+1. **老师发布作业 → 提醒所有学生**（新通知类型）。
+2. **学生完成提交 → 提醒老师批改**。
+3. **老师批改完成 → 提醒学生查看批改结果**。
+
+### 要改什么
+- **数据层**（新建 `db/migrate_assignments_notifications.sql`）：
+  - `notifications` 加一列 `assignment_id uuid`（与现有 `reading_id` 并列，用来深链到作业）。
+  - 放宽 `type` 校验，加入新类型，建议 `type in ('submission','feedback','new_assignment')`（或新增 `assignment` 类别，你定，但要能和 reading 通知区分）。改 check 约束需 `drop constraint` 再重建，注意表名是 `public.notifications`。
+- **库函数**：在 `src/lib/notifications.ts` 里新增三个（或把现有函数参数化，别破坏 reading 调用）：
+  - `notifyAssignmentStudents(supabase, classroomId, assignmentId, title)`：向 `assignment_recipients`（或班级所有学生）插 `type='new_assignment'`。
+  - `notifyAssignmentTeacher(...)`：学生提交后插 `type='submission'`（老师本人）。
+  - `notifyAssignmentStudent(...)`：批改后插 `type='feedback'`（该生 user_id）。
+  - 关键：这三条**都写 `assignment_id`、不写 `reading_id`**，与必读文章的通知严格区分。
+- **挂点**：
+  - 发布：`assignments/route.ts` 的 `POST` 在写入 `assignment_recipients` 之后调用「提醒学生」。
+  - 提交：`[assignmentId]/submit/route.ts` 的 `POST` 在 upsert submission 之后调用「提醒老师」。
+  - 批改：`[assignmentId]/review/route.ts` 的 `POST` 在 update 之后用 `submission.user_id` 调用「提醒学生」。
+- **前端**：`src/app/notifications/page.tsx` 的 `open()` 目前只处理 `reading_id`，要加分支：当 `assignment_id` 存在时跳 `/teaching/{classroom_id}/assignments/{assignment_id}`（详情页做好后指向它）。`Notification` interface 加 `assignment_id` 字段。
+
+---
+
+## 功能三：笔头作业作答分析（类比必读文章，重点：数据隔离）
+
+### 必读文章的分析实现（照抄结构，别复用数据）
+- AI 函数：`src/lib/ai/analysis.ts` 的 `analyzeReadingClass`，输入为文章标题 + 题目列表 + 每个学生的 {答案 + 教师批注 + 勾画/提问批注}，输出 `{ classSummary, students: [{email, summary}] }`。
+- 接口：`src/app/api/classrooms/[id]/readings/[readingId]/analysis/route.ts`（仅教师），生成后把 `classSummary` 回写到 `classroom_readings.class_summary` + `class_analysis_at`。
+- 页面：`src/app/teaching/[id]/readings/[readingId]/analysis/page.tsx`（进入即自动生成，展示班级总体 + 每个学生情况）。
+
+### 笔头作业要做
+- 新建 `src/lib/ai/assignment-analysis.ts`（或把 `analysis.ts` 参数化，但**建议单独写一个函数**），输入为：作业标题/要求 + 每个学生的 {提交正文/OCR 文字 + 教师批注(反馈/等级)}，输出同款 `{ classSummary, students }`。
+- 新建接口 `POST /api/classrooms/[id]/assignments/[assignmentId]/analysis`（仅教师），生成后回写 `classroom_assignments.class_summary` + `class_analysis_at`。
+- 新建页面 `src/app/teaching/[id]/assignments/[assignmentId]/analysis/page.tsx`，进入即自动生成、展示总体 + 学生列表。
+- 教师端作业详情页放「班级作答分析」入口（类比阅读页顶部入口）。
+
+### 数据隔离（务必严格遵守）
+- 笔头作业分析**只读** `assignment_submissions`（`eq("assignment_id", assignmentId)`），**只写** `classroom_assignments` 的 `class_summary`/`class_analysis_at`。
+- **绝不读** `reading_answers` / `reading_annotations`，**绝不写** `classroom_readings`。
+- 反过来必读文章分析也保持只针对 `reading_id`。两个板块的 AI 函数、接口、存储列各用各的，做到「每一次分析只针对该篇文章 / 该次作业」。
+- 数据层：新建 `db/migrate_assignments_analysis.sql`，给 `classroom_assignments` 加 `class_summary text`、`class_analysis_at timestamptz` 两列（参考 `db/migrate_class_analysis.sql`）。
+- 学生邮箱映射：`assignment_submissions` 只有 `user_id` 没有 `email`，喂 AI 前需要把 `user_id` 映射成邮箱（用 `assignment_recipients` 或 `classroom_members`，必读文章分析路由里已有同类 `emailByUser` 映射逻辑可抄）。
+
+---
+
+## 完成标准（三块统一）
+1. 多级页面能跑通「列表 → 详情 → 单生批改」完整链路。
+2. 三条通知链路全部触发，且通知点击能正确跳到对应作业页面。
+3. 作业作答分析能生成并展示，且与必读文章分析数据完全隔离。
+4. `npm run lint`、`npm run build` 通过；所有迁移 SQL 放进 `db/` 新文件并执行；同步更新 `DEV_LOG.md`。
