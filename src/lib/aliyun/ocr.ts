@@ -48,6 +48,10 @@ export async function recognizeText(
     throw new Error("缺少图片数据");
   }
 
+  // 业务参数：body（图片 base64）与 Languages（支持语言），必须一起参与签名。
+  const bodyParam = imageBase64;
+  const languagesParam = JSON.stringify(OCR_LANGUAGES);
+
   const params: Record<string, string> = {
     AccessKeyId: accessKeyId,
     Action: OCR_ACTION,
@@ -57,20 +61,31 @@ export async function recognizeText(
     SignatureVersion: "1.0",
     Timestamp: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
     Version: OCR_VERSION,
+    body: bodyParam,
+    Languages: languagesParam,
   };
   params.Signature = rpcSignature("POST", params, accessKeySecret);
 
-  const query = Object.keys(params)
+  // 系统参数 + 签名放 URL query；业务参数（body / Languages）放表单 body。
+  const queryParams: Record<string, string> = {};
+  const form = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (k === "body" || k === "Languages") {
+      form.set(k, v);
+    } else {
+      queryParams[k] = v;
+    }
+  }
+  const query = Object.keys(queryParams)
     .sort()
-    .map((k) => `${percentEncode(k)}=${percentEncode(params[k])}`)
+    .map((k) => `${percentEncode(k)}=${percentEncode(queryParams[k])}`)
     .join("&");
   const url = `https://${OCR_HOST}/?${query}`;
 
-  // 通用多语言识别：图片以 base64 放到 body 字段，Languages 指定支持语言（西语 lading / 英语 eng）。
   const res = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ body: imageBase64, Languages: OCR_LANGUAGES }),
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: form.toString(),
   });
   const data = await res.json();
 
