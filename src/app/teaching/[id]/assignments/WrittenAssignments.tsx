@@ -11,6 +11,8 @@ interface Assignment {
   content: string;
   ends_at: string;
   created_at: string;
+  media_paths: string[];
+  media_urls: { path: string; url: string }[];
 }
 
 interface Recipient {
@@ -46,6 +48,7 @@ export default function WrittenAssignments({ classroomId, role }: { classroomId:
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [endsAt, setEndsAt] = useState("");
+  const [publishFiles, setPublishFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState("");
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [files, setFiles] = useState<Record<string, File[]>>({});
@@ -103,16 +106,21 @@ export default function WrittenAssignments({ classroomId, role }: { classroomId:
     setBusy("publish");
     setError("");
     try {
+      const form = new FormData();
+      form.set("title", title.trim());
+      form.set("content", content.trim());
+      form.set("ends_at", endDate.toISOString());
+      publishFiles.forEach((file) => form.append("files", file));
       const response = await apiFetch(`/api/classrooms/${classroomId}/assignments`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, content, ends_at: endDate.toISOString() }),
+        body: form,
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "发布失败");
       setTitle("");
       setContent("");
       setEndsAt("");
+      setPublishFiles([]);
       setShowPublish(false);
       reload();
     } catch (publishError) {
@@ -220,6 +228,8 @@ export default function WrittenAssignments({ classroomId, role }: { classroomId:
             截止时间
             <input type="datetime-local" value={endsAt} onChange={(event) => setEndsAt(event.target.value)} className="ml-2 rounded-lg border border-zinc-200 bg-white px-2 py-1.5 text-sm" />
           </label>
+          <input type="file" multiple accept="image/png,image/jpeg,image/webp,image/gif,audio/mpeg,audio/wav,audio/webm,video/mp4,video/webm,application/pdf" onChange={(event) => setPublishFiles(Array.from(event.target.files ?? []).slice(0, 5))} className="block w-full text-sm text-zinc-500 file:mr-3 file:rounded-lg file:border-0 file:bg-white file:px-3 file:py-2 file:text-sm file:font-semibold" />
+          <p className="text-xs text-zinc-400">可选：最多 5 个附件，单个不超过 25MB。</p>
           <button onClick={publish} disabled={busy === "publish"} className="rounded-lg bg-orange-600 px-5 py-2 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-50">
             {busy === "publish" ? "发布中…" : "发布作业"}
           </button>
@@ -246,6 +256,7 @@ export default function WrittenAssignments({ classroomId, role }: { classroomId:
                     <h3 className="font-semibold text-zinc-900">{assignment.title}</h3>
                     <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-zinc-600">{assignment.content}</p>
                     <p className="mt-2 text-xs text-zinc-400">截止 {new Date(assignment.ends_at).toLocaleString("zh-CN")}</p>
+                    {assignment.media_urls?.length > 0 && <div className="mt-2 flex flex-wrap gap-2">{assignment.media_urls.map((media, index) => <a key={media.path} href={media.url} target="_blank" rel="noreferrer" className="rounded-lg border border-orange-200 bg-orange-50 px-3 py-1.5 text-xs font-medium text-orange-700 hover:border-orange-300">教师附件 {index + 1}</a>)}</div>}
                   </div>
                   <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${ended ? "bg-red-100 text-red-600" : "bg-emerald-100 text-emerald-700"}`}>
                     {ended ? "已截止" : "进行中"}
@@ -294,6 +305,7 @@ function StaffPanel({ assignment, submissions, recipients, missing, busy, feedba
   onReview: (assignmentId: string, submissionId: string) => Promise<void>;
   onExtractText: (assignmentId: string, submissionId: string) => Promise<void>;
 }) {
+  const [openId, setOpenId] = useState<string | null>(null);
   const emailFor = (userId: string) => recipients.find((item) => item.user_id === userId)?.email || userId;
   return (
     <div className="mt-4 border-t border-zinc-100 pt-4">
@@ -301,12 +313,20 @@ function StaffPanel({ assignment, submissions, recipients, missing, busy, feedba
       {missing.length > 0 && <p className="mt-1 text-xs text-red-600">未交：{missing.map((item) => item.email || item.user_id).join("、")}</p>}
       {submissions.length === 0 ? <p className="mt-3 text-sm text-zinc-400">暂时没有学生提交</p> : (
         <div className="mt-3 space-y-3">
-          {submissions.map((submission) => (
-            <div key={submission.id} className="rounded-lg bg-zinc-50 p-4">
-              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-500">
-                <span>{emailFor(submission.user_id)}</span>
-                <span>{new Date(submission.submitted_at).toLocaleString("zh-CN")} · {new Date(submission.submitted_at) > new Date(assignment.ends_at) ? "迟交" : "按时"}</span>
-              </div>
+          {submissions.map((submission) => {
+            const open = openId === submission.id;
+            return (
+            <div key={submission.id} className="overflow-hidden rounded-lg border border-zinc-100 bg-zinc-50">
+              <button type="button" onClick={() => setOpenId(open ? null : submission.id)} aria-expanded={open} className="flex w-full flex-wrap items-center justify-between gap-3 p-4 text-left hover:bg-zinc-100/70">
+                <span className="text-sm font-medium text-zinc-800">{emailFor(submission.user_id)}</span>
+                <span className="flex flex-wrap items-center gap-2 text-xs text-zinc-500">
+                  <span>{new Date(submission.submitted_at).toLocaleString("zh-CN")}</span>
+                  <span className={new Date(submission.submitted_at) > new Date(assignment.ends_at) ? "text-red-600" : "text-emerald-700"}>{new Date(submission.submitted_at) > new Date(assignment.ends_at) ? "迟交" : "按时"}</span>
+                  <span>{submission.score !== null ? `已评分 ${submission.score}/${submission.max_score}` : "未评分"}</span>
+                  <span aria-hidden="true">{open ? "收起 ↑" : "查看详情 ↓"}</span>
+                </span>
+              </button>
+              {open && <div className="border-t border-zinc-200 p-4">
               <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-zinc-700">{submission.content}</p>
               {submission.media_urls?.length > 0 && <div className="mt-3 flex flex-wrap gap-2">{submission.media_urls.map((media, index) => <a key={media.path} href={media.url} target="_blank" rel="noreferrer" className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs text-orange-700 hover:border-orange-300">查看附件 {index + 1}</a>)}</div>}
               {submission.media_paths?.length > 0 && <button onClick={() => onExtractText(assignment.id, submission.id)} disabled={busy === `ocr:${submission.id}`} className="mt-3 rounded-lg border border-orange-200 bg-white px-3 py-2 text-xs font-semibold text-orange-700 disabled:opacity-50">{busy === `ocr:${submission.id}` ? "识别中…" : "提取图片文字"}</button>}
@@ -317,8 +337,9 @@ function StaffPanel({ assignment, submissions, recipients, missing, busy, feedba
                 <input value={feedback[submission.id] ?? ""} onChange={(event) => setFeedback((current) => ({ ...current, [submission.id]: event.target.value }))} maxLength={8000} placeholder="写反馈" className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm" />
                 <button onClick={() => onReview(assignment.id, submission.id)} disabled={busy === `review:${submission.id}`} className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-50">{busy === `review:${submission.id}` ? "保存中…" : "保存批改"}</button>
               </div>
+              </div>}
             </div>
-          ))}
+          );})}
         </div>
       )}
     </div>
