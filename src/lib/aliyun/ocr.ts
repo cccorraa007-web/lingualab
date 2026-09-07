@@ -48,7 +48,8 @@ export async function recognizeText(
     throw new Error("缺少图片数据");
   }
 
-  // 业务参数：body（图片 base64）与 Languages（数组，RPC 用 Languages.1 / Languages.2 展开），必须一起参与签名。
+  // 参与签名的参数：系统参数 + Languages（数组用 Languages.1/Languages.2 展开）。
+  // 注意：body（图片）作为原始请求体发送，不参与签名。
   const params: Record<string, string> = {
     AccessKeyId: accessKeyId,
     Action: OCR_ACTION,
@@ -58,33 +59,23 @@ export async function recognizeText(
     SignatureVersion: "1.0",
     Timestamp: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
     Version: OCR_VERSION,
-    body: imageBase64,
   };
   OCR_LANGUAGES.forEach((lang, i) => {
     params[`Languages.${i + 1}`] = lang;
   });
   params.Signature = rpcSignature("POST", params, accessKeySecret);
 
-  // 系统参数 + 签名放 URL query；业务参数（body / Languages.N）放表单 body。
-  const queryParams: Record<string, string> = {};
-  const form = new URLSearchParams();
-  for (const [k, v] of Object.entries(params)) {
-    if (k === "body" || k.startsWith("Languages.")) {
-      form.set(k, v);
-    } else {
-      queryParams[k] = v;
-    }
-  }
-  const query = Object.keys(queryParams)
+  // 全部签名参数（系统 + Languages.N + Signature）放 URL query；图片二进制作为原始请求体发送。
+  const query = Object.keys(params)
     .sort()
-    .map((k) => `${percentEncode(k)}=${percentEncode(queryParams[k])}`)
+    .map((k) => `${percentEncode(k)}=${percentEncode(params[k])}`)
     .join("&");
   const url = `https://${OCR_HOST}/?${query}`;
 
   const res = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: form.toString(),
+    headers: { "Content-Type": "application/octet-stream" },
+    body: Buffer.from(imageBase64, "base64"),
   });
   const data = await res.json();
 
