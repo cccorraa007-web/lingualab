@@ -338,6 +338,39 @@ export default function ReadingPage() {
         ← {showPrep ? "退出备课" : "返回课后作业"}
       </Link>
 
+      {/* 页面功能引导 */}
+      {!showPrep && (
+        <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50/50 p-4">
+          <p className="font-semibold text-blue-700">页面说明</p>
+          {isTeacher ? (
+            <ul className="mt-2 space-y-1.5 text-sm text-zinc-600">
+              <li>
+                <b>选中原文</b>可添加题目（发布后学生作答）或加入备课笔记。
+              </li>
+              <li>
+                <b>点进题目</b>可查看学生作答并批改留言。
+              </li>
+              <li>
+                顶部「<b>班级作答分析</b>」可查看班级总体与每个学生情况；备课笔记旁「
+                <b>生成辅助课件</b>」可基于批注生成可下载课件。
+              </li>
+            </ul>
+          ) : (
+            <ul className="mt-2 space-y-1.5 text-sm text-zinc-600">
+              <li>
+                <b>选中原文</b>可勾画生词、添加批注提出疑问。
+              </li>
+              <li>
+                <b>点进题目</b>进行作答，等待老师批改。
+              </li>
+              <li>
+                完成勾画与作答后，可一键<b>加入语料库</b>继续学习。
+              </li>
+            </ul>
+          )}
+        </div>
+      )}
+
       {showPrep && (
         <div className="mt-4 rounded-xl border border-orange-200 bg-orange-50/60 p-4">
           <p className="font-semibold text-orange-700">备课模式</p>
