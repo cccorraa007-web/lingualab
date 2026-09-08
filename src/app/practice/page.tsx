@@ -290,6 +290,7 @@ function FreePractice({ lang }: { lang: TargetLang }) {
   const [error, setError] = useState("");
   const [listening, setListening] = useState(false);
   const mediaRecorderRef = useRef<StreamingRecorder | null>(null);
+  const startedAtRef = useRef<number>(0);
 
   useEffect(() => {
     apiFetch(`/api/materials?lang=${lang}`)
@@ -305,6 +306,7 @@ function FreePractice({ lang }: { lang: TargetLang }) {
   }, [lang]);
 
   async function start(t: string) {
+    startedAtRef.current = new Date().getTime();
     setTopic(t);
     setLoading(true);
     setError("");
@@ -365,6 +367,9 @@ function FreePractice({ lang }: { lang: TargetLang }) {
       setAssessment(data.assessment ?? null);
       setSelectedPolish(new Set());
       setMistakeSaved(false);
+      const durationSeconds = startedAtRef.current
+        ? Math.max(0, Math.round((new Date().getTime() - startedAtRef.current) / 1000))
+        : 0;
       try {
         await apiFetch("/api/practice/sessions", {
           method: "POST",
@@ -376,6 +381,7 @@ function FreePractice({ lang }: { lang: TargetLang }) {
             transcript: messages,
             polish: polishItems,
             assessment: data.assessment ?? null,
+            duration_seconds: durationSeconds,
           }),
         });
       } catch {
@@ -794,6 +800,7 @@ function ExamPractice({ lang }: { lang: TargetLang }) {
   const recorderRef = useRef<StreamingRecorder | null>(null);
   const audioBlobRef = useRef<Blob | null>(null);
   const examTypeRef = useRef<string>("");
+  const startedAtRef = useRef<number>(0);
 
   const startRecording = useCallback(async () => {
     try {
@@ -826,6 +833,7 @@ function ExamPractice({ lang }: { lang: TargetLang }) {
     setPolish(null);
     setAssessment(null);
     audioBlobRef.current = null;
+    startedAtRef.current = new Date().getTime();
     try {
       const res = await apiFetch("/api/practice/exam-question", {
         method: "POST",
@@ -894,6 +902,9 @@ function ExamPractice({ lang }: { lang: TargetLang }) {
       if (!polishRes.ok) throw new Error(polishData.error || "润色失败");
       setPolish(polishData.polish ?? []);
       setAssessment(polishData.assessment ?? null);
+      const durationSeconds = startedAtRef.current
+        ? Math.max(0, Math.round((new Date().getTime() - startedAtRef.current) / 1000))
+        : 0;
       try {
         await apiFetch("/api/practice/sessions", {
           method: "POST",
@@ -905,6 +916,7 @@ function ExamPractice({ lang }: { lang: TargetLang }) {
             transcript: [{ role: "user", content: text }],
             polish: polishData.polish ?? [],
             assessment: polishData.assessment ?? null,
+            duration_seconds: durationSeconds,
           }),
         });
       } catch {

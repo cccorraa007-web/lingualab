@@ -34,6 +34,7 @@ export async function POST(request: Request) {
     transcript?: unknown;
     polish?: unknown;
     assessment?: unknown;
+    duration_seconds?: number;
   };
   try {
     body = await request.json();
@@ -55,6 +56,7 @@ export async function POST(request: Request) {
       transcript: body.transcript,
       polish: Array.isArray(body.polish) ? body.polish : [],
       assessment: body.assessment ?? null,
+      duration_seconds: body.duration_seconds ?? null,
     })
     .select()
     .single();

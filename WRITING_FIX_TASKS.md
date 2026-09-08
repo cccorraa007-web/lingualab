@@ -292,3 +292,34 @@
 - 润色提交 → 输入清空 + 原文进入结果页留存 + 修改处高亮；可连续写下一篇。
 - 加入错题本 → 回到初始输入状态。
 - `npm run lint`、`npm run build` 通过。
+
+---
+
+# 教师端：学生档案 + 备课功能完善（请实现）
+
+> 学生端「我的档案」我已完成（`/teaching/[id]/profile`），含：作业评分统计、班级综合排行（已交=预习+课后作业总数）、课外学习情况统计（自主阅读/口语/写作/错题本）。教师端照此扩展。
+
+## 一、教师端「学生档案」
+
+### 需求
+- 在「班级成员」页（`src/app/teaching/[id]/members/page.tsx`）新增一个「学生档案」入口。
+- 点进去二级页面，可查看该班**所有学生**的档案，内容与学生端「我的档案」一致，但叫「学生档案」。
+- 与学生端的两处差异：
+  1. 「班级综合排行」改叫「平时作业情况」——统计口径相同：预习（必读文章）+ 课后作业（笔头作业）的总数（`已交/所有` 已经由 `GET /api/classrooms/[id]/assignments/stats` 返回，含 readings）。
+  2. 新增「学情分析统计」：数据来源是预习+作业的**班级作答分析**（必读文章 `class_summary` + 笔头作业 `class_summary`），注意是**动态数据**（学生作答持续更新），需要实时读取每个学生的作答/提交与各文章/作业的班级分析汇总。
+
+### 技术提示
+- 学生档案聚合接口参考现有 `GET /api/classrooms/[id]/assignments/stats`（已按学生聚合，返回 `self/top_three/total_assignments`），教师端可扩展成返回**所有学生**（不要只返回 top3 和自己）。
+- 学情分析数据来源：`classroom_readings.class_summary`、`classroom_assignments.class_summary`（分析接口 `POST .../readings/[readingId]/analysis`、`POST .../assignments/[assignmentId]/analysis` 生成并回写）。
+
+## 二、备课功能完善
+
+1. **笔头作业加「添加到备课资料库」**：类比必读文章（`src/app/teaching/[id]/readings/[readingId]/page.tsx` 里已有「添加到备课资料库」），在笔头作业详情页（你实现的三级页面）加同样的入口，调 `POST /api/classrooms/[id]/library/items`，`source = "assignment"`。
+2. **「添加到备课资料库」是动态快照**：预习/作业页面的「添加到备课资料库」点击后，应把**整个页面的最新内容**（包括老师批注、学生作答、班级作答分析的动态结果）加入资料库。即：任何时间节点教师勾选素材备课，都调取**最新的学生作答情况 + 她自己的备课笔记**（不要缓存旧快照）。
+3. **完成后删除「（建设中）」**：把 `src/app/teaching/[id]/page.tsx` 里「备课资料库」卡片的 `（建设中）` 括号去掉。
+
+## 完成标准
+- 教师端「学生档案」能看到全班学生档案 + 平时作业情况（预习+课后作业）+ 学情分析。
+- 笔头作业能「添加到备课资料库」，且备课资料库里的素材数据是动态最新的。
+- 备课资料库卡片无「（建设中）」。
+- `npm run lint`、`npm run build` 通过。

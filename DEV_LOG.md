@@ -416,3 +416,10 @@ LinguaLab 的核心价值主张：**把用户读过的材料，自动转化成�
 
 - 口语练习记录失败根因：`practice_sessions` 表缺 `assessment` 列，POST 静默失败。把 `assessment` 直接写进 `db/migrate_practice_sessions.sql` 的建表（自包含，参照队友 `writing_sessions` 做法）；旧库执行 `db/migrate_practice_sessions_assessment.sql` 即可。
 - 写作润色交互问题已写进 `WRITING_FIX_TASKS.md` 交接队友：① 润色提交后清空输入、原文转入结果页留存并对 AI 修改处高亮；② 加入错题本后回到初始输入状态。
+
+### 8.11 学生「我的档案」完善（作业统计口径 + 课外学习统计）
+
+- 班级综合排行「已交/所有作业」改为预习（必读文章）+ 课后作业（笔头作业）总数：`GET /api/classrooms/[id]/assignments/stats` 增加 readings/questions/answers 聚合，返回 `submitted/total/done_readings`。
+- 新增「课外学习情况统计」：`GET /api/profile/learning-stats` 返回 自主阅读文章数（`materials.reading_id is null`）、口语练习次数/近7天/平均时长/平均评分、写作润色次数/平均评分、错题本错题数/掌握中/最近复习。
+- 口语练习记录新增 `duration_seconds`（`db/migrate_practice_sessions_duration.sql`），自由练习与考题模式记录时长。
+- 教师端「学生档案 + 备课完善」已写进 `WRITING_FIX_TASKS.md` 交接队友。
