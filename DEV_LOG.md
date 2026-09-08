@@ -437,3 +437,11 @@ LinguaLab 的核心价值主张：**把用户读过的材料，自动转化成�
 - 新增 `src/lib/supabase/jwt.ts`：用 Node `crypto`（HS256）本地校验 Supabase access token，`getUserClient` 优先走本地解析 `sub`/`email`，避免每个 API 请求都打一次 `auth.getUser` 网络往返；无 `SUPABASE_JWT_SECRET` 时回退原网络校验。需在 `.env.local` 新增 `SUPABASE_JWT_SECRET`（Supabase 控制台 → Project Settings → API → JWT Secret）。
 - 必读文章页勾画/批注、添加题目、删除批注/题目改为「乐观更新」：请求成功后直接更新本地 state，不再 `setReloadKey` 全页重取，交互不再卡 3-5 秒。
 - 必读文章详情 `GET` 改为并行请求（reading/annotations/materials/questions 用 `Promise.all`），减少串行网络往返。
+
+### 8.14 课堂与备课资料库重构
+
+- 新增删除班级：`DELETE /api/classrooms/[id]` 仅创建者（`created_by`）可删，级联删除成员/预习/作业/通知；班级列表卡片加「删除」按钮（带二次确认，仅 `can_delete` 可见）。
+- 备课资料库改为「熔炉」模式：课件基于**库内全部素材**一键生成，「生成课件」按钮放在「已添加的备课素材」旁，下载后自动清空资料库（`DELETE /api/classrooms/[id]/library/items`），下次需重新添加。
+- 移除了按单篇素材点进去生成课件的入口（`library/[itemId]` 只保留查看批注/作答/分析）。
+- 添加素材时，已加入资料库的素材自动标注「已添加」并禁止重复勾选。
+- 新增单条素材删除：`DELETE /api/classrooms/[id]/library/items/[itemId]`，删除后该素材在「添加素材」处恢复可选，支持自由定制素材库。

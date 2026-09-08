@@ -144,3 +144,30 @@ export async function POST(
 
   return NextResponse.json({ item: data });
 }
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const auth = await getUserClient(request);
+  if (!auth) return unauthorized();
+  const supabase = auth.client;
+
+  const { id } = await params;
+  const role = await myRole(supabase, auth.user.id, id);
+  if (role !== "teacher") {
+    return NextResponse.json({ error: "只有教师能清空备课资料库" }, { status: 403 });
+  }
+
+  const { error } = await supabase
+    .from("lesson_library")
+    .delete()
+    .eq("user_id", auth.user.id)
+    .eq("classroom_id", id);
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ ok: true });
+}

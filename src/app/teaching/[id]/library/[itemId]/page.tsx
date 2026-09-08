@@ -58,13 +58,6 @@ interface AssignmentData {
   submissions: { id: string; user_id: string; content: string | null; ocr_text: string | null; feedback: string | null; grade: string | null }[];
 }
 
-const LESSON_TYPES = [
-  { value: "blank", label: "填空题" },
-  { value: "choice", label: "选择题" },
-  { value: "truefalse", label: "判断题" },
-  { value: "qa", label: "问答题" },
-];
-
 export default function LibraryItemDetailPage() {
   const params = useParams<{ id: string; itemId: string }>();
   const [item, setItem] = useState<LibraryItem | null>(null);
@@ -72,19 +65,6 @@ export default function LibraryItemDetailPage() {
   const [assignmentData, setAssignmentData] = useState<AssignmentData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
-  const [showModal, setShowModal] = useState(false);
-  const [format, setFormat] = useState<"pptx" | "docx">("pptx");
-  const [types, setTypes] = useState<string[]>(["blank", "choice"]);
-  const [count, setCount] = useState(10);
-  const [wordExplanation, setWordExplanation] = useState(false);
-  const [extra, setExtra] = useState("");
-  const [generating, setGenerating] = useState(false);
-  const [result, setResult] = useState<{
-    filename: string;
-    dataUrl: string;
-  } | null>(null);
-  const [genError, setGenError] = useState("");
 
   useEffect(() => {
     apiFetch(`/api/classrooms/${params.id}/library/items/${params.itemId}`)
@@ -109,58 +89,6 @@ export default function LibraryItemDetailPage() {
       .catch((e) => setError(e instanceof Error ? e.message : String(e)))
       .finally(() => setLoading(false));
   }, [params.id, params.itemId]);
-
-  function toggleType(t: string) {
-    setTypes((prev) =>
-      prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t],
-    );
-  }
-
-  async function generate() {
-    if (!item) return;
-    if (types.length === 0) {
-      setGenError("请至少选择一种题型");
-      return;
-    }
-    setGenerating(true);
-    setGenError("");
-    setResult(null);
-    try {
-      const url =
-        item.source === "reading"
-          ? `/api/classrooms/${params.id}/readings/${item.source_id}/lesson`
-          : `/api/classrooms/${params.id}/library`;
-      const body =
-        item.source === "reading"
-          ? {
-              format,
-              questionTypes: types,
-              questionCount: count,
-              extra,
-              wordExplanation,
-            }
-          : {
-              items: [{ source: item.source, id: item.source_id }],
-              format,
-              questionTypes: types,
-              questionCount: count,
-              extra,
-              wordExplanation,
-            };
-      const res = await apiFetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "生成失败");
-      setResult({ filename: data.filename, dataUrl: data.dataUrl });
-    } catch (e) {
-      setGenError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setGenerating(false);
-    }
-  }
 
   if (loading) {
     return (
@@ -199,12 +127,6 @@ export default function LibraryItemDetailPage() {
             {new Date(item.created_at).toLocaleString("zh-CN")}
           </p>
         </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700"
-        >
-          去备课（生成课件）
-        </button>
       </div>
 
       {isReading && readingData ? (
@@ -334,139 +256,10 @@ export default function LibraryItemDetailPage() {
         </div>
       ) : (
         <div className="mt-6 rounded-xl border border-dashed border-zinc-200 p-10 text-center text-sm text-zinc-400">
-          该素材类型暂无详细教学数据，可直接「去备课」生成课件。
+          该素材类型暂无详细教学数据，可返回「备课资料库」生成课件。
         </div>
       )}
 
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold text-zinc-900">生成课件</h2>
-              <button
-                onClick={() => setShowModal(false)}
-                className="text-zinc-400 hover:text-zinc-600"
-              >
-                关闭
-              </button>
-            </div>
-
-            {result ? (
-              <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-                <p className="text-sm font-medium text-emerald-700">课件已生成</p>
-                <p className="mt-1 break-all text-xs text-zinc-500">
-                  {result.filename}
-                </p>
-                <a
-                  href={result.dataUrl}
-                  download={result.filename}
-                  className="mt-3 inline-block rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
-                >
-                  下载课件
-                </a>
-                <button
-                  onClick={() => {
-                    setResult(null);
-                    setShowModal(false);
-                  }}
-                  className="ml-2 text-sm text-zinc-500 hover:text-zinc-700"
-                >
-                  完成
-                </button>
-              </div>
-            ) : (
-              <>
-                <div className="mt-4">
-                  <p className="text-sm font-semibold text-zinc-700">文件格式</p>
-                  <div className="mt-2 flex gap-2">
-                    {(["pptx", "docx"] as const).map((f) => (
-                      <button
-                        key={f}
-                        onClick={() => setFormat(f)}
-                        className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium ${
-                          format === f
-                            ? "border-orange-500 bg-orange-50 text-orange-700"
-                            : "border-zinc-200 text-zinc-600 hover:bg-zinc-50"
-                        }`}
-                      >
-                        {f === "pptx" ? "PPT 演示文稿" : "Word 文档"}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="mt-4">
-                  <p className="text-sm font-semibold text-zinc-700">包含题型</p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {LESSON_TYPES.map((t) => (
-                      <button
-                        key={t.value}
-                        onClick={() => toggleType(t.value)}
-                        className={`rounded-lg border px-3 py-1.5 text-sm ${
-                          types.includes(t.value)
-                            ? "border-orange-500 bg-orange-50 text-orange-700"
-                            : "border-zinc-200 text-zinc-600 hover:bg-zinc-50"
-                        }`}
-                      >
-                        {t.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="mt-4">
-                  <p className="text-sm font-semibold text-zinc-700">题目数量</p>
-                  <input
-                    type="number"
-                    min={1}
-                    max={50}
-                    value={count}
-                    onChange={(e) => setCount(Number(e.target.value) || 1)}
-                    className="mt-2 w-28 rounded-lg border border-zinc-200 px-3 py-1.5 text-sm"
-                  />
-                </div>
-
-                <label className="mt-4 flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={wordExplanation}
-                    onChange={(e) => setWordExplanation(e.target.checked)}
-                    className="h-4 w-4 accent-orange-600"
-                  />
-                  <span className="text-sm font-semibold text-zinc-700">
-                    需要单词讲解
-                  </span>
-                </label>
-
-                <div className="mt-4">
-                  <p className="text-sm font-semibold text-zinc-700">
-                    补充需求（可选）
-                  </p>
-                  <textarea
-                    value={extra}
-                    onChange={(e) => setExtra(e.target.value)}
-                    placeholder="例如：侧重语法点、加入课堂讨论环节…"
-                    rows={3}
-                    className="mt-2 w-full rounded-lg border border-zinc-200 p-2 text-sm outline-none focus:border-orange-400"
-                  />
-                </div>
-
-                {genError && (
-                  <p className="mt-3 text-sm text-red-600">{genError}</p>
-                )}
-
-                <button
-                  onClick={generate}
-                  disabled={generating}
-                  className="mt-4 w-full rounded-lg bg-orange-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-50"
-                >
-                  {generating ? "AI 生成中…（可能需要一段时间）" : "生成课件"}
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

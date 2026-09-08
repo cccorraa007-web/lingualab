@@ -63,3 +63,44 @@ export async function GET(
     my_role: myRole,
   });
 }
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const auth = await getUserClient(request);
+  if (!auth) return unauthorized();
+  const supabase = auth.client;
+
+  const { id } = await params;
+
+  const { data: classroom, error: cErr } = await supabase
+    .from("classrooms")
+    .select("created_by")
+    .eq("id", id)
+    .maybeSingle();
+  if (cErr) {
+    return NextResponse.json({ error: cErr.message }, { status: 500 });
+  }
+  if (!classroom) {
+    return NextResponse.json({ error: "班级不存在" }, { status: 404 });
+  }
+  if (classroom.created_by !== auth.user.id) {
+    return NextResponse.json(
+      { error: "只有班级创建者能删除班级" },
+      { status: 403 },
+    );
+  }
+
+  await supabase.from("notifications").delete().eq("classroom_id", id);
+
+  const { error: dErr } = await supabase
+    .from("classrooms")
+    .delete()
+    .eq("id", id);
+  if (dErr) {
+    return NextResponse.json({ error: dErr.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ ok: true });
+}

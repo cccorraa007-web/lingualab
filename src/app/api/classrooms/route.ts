@@ -47,6 +47,7 @@ export async function GET(request: Request) {
   const classes = (rooms ?? []).map((room) => ({
     ...room,
     my_role: roleByClass.get(room.id) ?? "student",
+    can_delete: room.created_by === auth.user.id,
   }));
 
   return NextResponse.json({ classes });

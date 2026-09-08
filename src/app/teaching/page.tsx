@@ -11,6 +11,7 @@ interface Classroom {
   invite_code: string;
   my_role: "teacher" | "student";
   lang?: string;
+  can_delete?: boolean;
 }
 
 export default function TeachingPage() {
@@ -27,6 +28,7 @@ export default function TeachingPage() {
   const [joinRole, setJoinRole] = useState<"teacher" | "student">("student");
   const [joining, setJoining] = useState(false);
   const [joinMsg, setJoinMsg] = useState("");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     apiFetch("/api/classrooms")
@@ -82,6 +84,26 @@ export default function TeachingPage() {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setJoining(false);
+    }
+  }
+
+  async function handleDelete(c: Classroom) {
+    if (!window.confirm(`确定删除班级「${c.name}」吗？该班级的成员、预习、作业、通知等数据都会被一并删除，且无法恢复。`)) {
+      return;
+    }
+    setDeletingId(c.id);
+    setError("");
+    try {
+      const res = await apiFetch(`/api/classrooms/${c.id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "删除失败");
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -200,26 +222,41 @@ export default function TeachingPage() {
           </div>
         )}
         {classes.map((c) => (
-          <Link
+          <div
             key={c.id}
-            href={`/teaching/${c.id}`}
             className="flex items-center justify-between rounded-xl border border-zinc-100 bg-white p-4 shadow-sm transition hover:shadow-md"
           >
-            <div>
-              <div className="flex items-center gap-2">
-                <p className="font-semibold text-zinc-900">{c.name}</p>
-                {(c.lang === "es" || c.lang === "en") && (
-                  <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
-                    {langMeta(c.lang).label}
-                  </span>
-                )}
+            <Link
+              href={`/teaching/${c.id}`}
+              className="flex min-w-0 flex-1 items-center justify-between"
+            >
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="font-semibold text-zinc-900">{c.name}</p>
+                  {(c.lang === "es" || c.lang === "en") && (
+                    <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+                      {langMeta(c.lang).label}
+                    </span>
+                  )}
+                </div>
+                <p className="mt-1 text-xs text-zinc-400">
+                  {c.my_role === "teacher" ? "教师" : "学生"}
+                </p>
               </div>
-              <p className="mt-1 text-xs text-zinc-400">
-                {c.my_role === "teacher" ? "教师" : "学生"}
-              </p>
-            </div>
-            <span className="text-sm text-orange-600">进入 →</span>
-          </Link>
+              <span className="ml-4 shrink-0 text-sm text-orange-600">
+                进入 →
+              </span>
+            </Link>
+            {c.can_delete && (
+              <button
+                onClick={() => handleDelete(c)}
+                disabled={deletingId === c.id}
+                className="ml-4 shrink-0 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+              >
+                {deletingId === c.id ? "删除中…" : "删除"}
+              </button>
+            )}
+          </div>
         ))}
       </div>
     </div>
