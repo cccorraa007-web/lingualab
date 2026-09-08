@@ -24,6 +24,33 @@ interface AnswerResult {
   streak: number;
 }
 
+function encodeWav(samples: Float32Array, sampleRate: number): Blob {
+  const buffer = new ArrayBuffer(44 + samples.length * 2);
+  const view = new DataView(buffer);
+  const writeStr = (offset: number, s: string) => {
+    for (let i = 0; i < s.length; i++) view.setUint8(offset + i, s.charCodeAt(i));
+  };
+  writeStr(0, "RIFF");
+  view.setUint32(4, 36 + samples.length * 2, true);
+  writeStr(8, "WAVE");
+  writeStr(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  writeStr(36, "data");
+  view.setUint32(40, samples.length * 2, true);
+  let offset = 44;
+  for (let i = 0; i < samples.length; i++, offset += 2) {
+    const s = Math.max(-1, Math.min(1, samples[i]));
+    view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+  }
+  return new Blob([buffer], { type: "audio/wav" });
+}
+
 export default function InterpretingPractice({
   lang,
   onBack,
@@ -40,7 +67,10 @@ export default function InterpretingPractice({
   const [listening, setListening] = useState(false);
   const [result, setResult] = useState<AnswerResult | null>(null);
   const [error, setError] = useState("");
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const processorRef = useRef<ScriptProcessorNode | null>(null);
+  const chunksRef = useRef<Float32Array[]>([]);
 
   function next(selectedMode: MistakePracticeMode | null = practiceMode) {
     if (!selectedMode) return;
@@ -68,9 +98,9 @@ export default function InterpretingPractice({
       .finally(() => setLoading(false));
   }
 
-  async function recognizeAndSend(blob: Blob) {
+  async function recognizeAndSend(blob: Blob, sampleRate: number) {
     try {
-      const res = await apiFetch("/api/speech/asr?format=opus", {
+      const res = await apiFetch(`/api/speech/asr?format=wav&sample_rate=${sampleRate}`, {
         method: "POST",
         headers: { "Content-Type": "application/octet-stream" },
         body: blob,
@@ -80,6 +110,8 @@ export default function InterpretingPractice({
       const text = (data.text ?? "").trim();
       if (text) {
         await submit(text);
+      } else {
+        setError("未识别到语音，请靠近麦克风再说一次");
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -88,31 +120,70 @@ export default function InterpretingPractice({
 
   function toggleListening() {
     if (listening) {
-      const rec = mediaRecorderRef.current;
-      if (rec && rec.state !== "inactive") rec.stop();
+      stopRecording();
+      return;
+    }
+    void startRecording();
+  }
+
+  async function startRecording() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const ctx = new AudioContext({ sampleRate: 16000 });
+      await ctx.resume();
+      const sampleRate = ctx.sampleRate;
+      const source = ctx.createMediaStreamSource(stream);
+      const processor = ctx.createScriptProcessor(2048, 1, 1);
+      const gain = ctx.createGain();
+      gain.gain.value = 0;
+      const chunks: Float32Array[] = [];
+      processor.onaudioprocess = (e) => {
+        chunks.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+      };
+      source.connect(processor);
+      processor.connect(gain);
+      gain.connect(ctx.destination);
+
+      audioCtxRef.current = ctx;
+      streamRef.current = stream;
+      processorRef.current = processor;
+      chunksRef.current = chunks;
+      setListening(true);
+    } catch (e) {
+      setError(
+        "无法访问麦克风：" + (e instanceof Error ? e.message : String(e)),
+      );
+    }
+  }
+
+  function stopRecording() {
+    const ctx = audioCtxRef.current;
+    const stream = streamRef.current;
+    const processor = processorRef.current;
+    if (!ctx || !processor) {
       setListening(false);
       return;
     }
-    void (async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        const rec = new MediaRecorder(stream);
-        const chunks: Blob[] = [];
-        rec.ondataavailable = (e) => chunks.push(e.data);
-        rec.onstop = () => {
-          stream.getTracks().forEach((t) => t.stop());
-          const blob = new Blob(chunks, { type: "audio/webm" });
-          void recognizeAndSend(blob);
-        };
-        rec.start();
-        mediaRecorderRef.current = rec;
-        setListening(true);
-      } catch (e) {
-        setError(
-          "无法访问麦克风：" + (e instanceof Error ? e.message : String(e)),
-        );
-      }
-    })();
+    processor.disconnect();
+    stream?.getTracks().forEach((t) => t.stop());
+    const sampleRate = ctx.sampleRate;
+    void ctx.close();
+    setListening(false);
+
+    const chunks = chunksRef.current;
+    const total = chunks.reduce((sum, c) => sum + c.length, 0);
+    if (total === 0) {
+      setError("未检测到声音，请检查麦克风后重试");
+      return;
+    }
+    const samples = new Float32Array(total);
+    let offset = 0;
+    for (const c of chunks) {
+      samples.set(c, offset);
+      offset += c.length;
+    }
+    const blob = encodeWav(samples, sampleRate);
+    void recognizeAndSend(blob, sampleRate);
   }
 
   async function submit(text: string) {

@@ -464,3 +464,7 @@ LinguaLab 的核心价值主张：**把用户读过的材料，自动转化成�
 
 - `db/migrate_teacher_student_profiles.sql` 改为 `drop function if exists` + `create function`，避免 `create or replace` 因旧版返回类型/列不一致（session_type、user_id 歧义）而失败；函数内所有列均加 `m.`/`x.` 前缀消除歧义。
 - 删除按钮（语料库文章删除、班级删除）由原生 `window.confirm` 改为内联两段确认（点「删除」→「确认删除 / 取消」），避免原生弹窗在隧道环境下延迟/被拦截导致的「点很多次才反应」。
+
+### 8.18 口译 ASR 修复
+
+- 口译练习（`InterpretingPractice`）此前仍用 `MediaRecorder` 输出 WebM 容器却按 `format=opus` 发送，导致 `NO_VALID_AUDIO_ERROR`。改为 `AudioContext` + `ScriptProcessor` 采集 16kHz PCM 并封装 WAV，按 `format=wav` 发送，与口语练习一致。
