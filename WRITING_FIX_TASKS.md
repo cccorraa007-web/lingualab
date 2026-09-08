@@ -372,3 +372,78 @@
 - 教师在单生批改页点「一键批改」→ 上传参考答案 → 系统自动 OCR 所有学生提交 → AI 对照生成批改表 → 教师逐条确认/修改 → 点「采纳」写入数据库。
 - 流程跑通，`npm run lint`、`npm run build` 通过。
 - 迁移 SQL 放进 `db/` 并执行，同步更新 `DEV_LOG.md`。
+
+### 6) 学生不可见教师答案（务必落实）
+- 教师上传的参考答案仅供批改使用，**学生绝不能看到**。
+- 存储桶路径用独立段 `{assignment_id}/teacher_answer/{文件名}`，与学生提交路径（`{assignment_id}/{user_id}/...`）严格区分。
+- 存储 read policy 只放行 `role = 'teacher'`，不要给学生分支。
+- 学生侧接口（`GET /assignments`、`GET /assignments/[id]`）一律不返回 `teacher_answer_paths` 及其 OCR 文字。
+
+---
+
+# 新增：资料库导入与笔记保留选项（三处，统一交互模式）
+
+> 背景：自学模式的「资料库」（`lesson_library` + `library_items`）已有笔记/高亮/标注数据。教师备课、学生写作、学生收藏必读文章时从资料库导入，需要统一的「是否保留笔记」选项。
+
+## 场景一：教师从资料库导入素材 → 预习作业 / 备课资料库
+
+### 现状
+- 教师在必读文章页、笔头作业页点「添加到备课资料库」，调 `POST /api/classrooms/[id]/library/items`，`source = "reading" | "assignment"`。
+- 资料库条目（`library_items`）已包含：文章正文、教师批注、学生作答、班级分析、高亮/笔记。
+
+### 要改什么
+1. **导入弹窗加 Checkbox**：发起导入前弹出确认弹窗，含勾选项：
+   - ☐ 保留笔记与高亮（含教师批注、学生作答、高亮片段、个人笔记）
+   - 默认**不勾选**（干净导入仅正文+题目）。
+2. **接口层**：`POST /api/classrooms/[id]/library/items` 新增可选参数 `keep_notes: boolean`。
+   - `keep_notes = true`：把源页面的 `annotations`、`highlights`、`teacher_notes`、`student_answers`、`class_analysis` 全量写入新条目。
+   - `keep_notes = false`（默认）：只写入 `content`、`title`、`source_type`、`source_id`、基础元数据。
+3. **前端**：必读文章详情页（`readings/[readingId]/page.tsx`）、笔头作业详情页（你实现的三级页面）的「添加到备课资料库」按钮点击后，先弹窗询问，再带参数调接口。
+
+## 场景二：学生把「已批改的笔头作业」加入「写作润色」
+
+### 现状
+- 学生端作业详情/批改详情页已有「加入写作润色」按钮（功能一里要求），传 `title`（作业题）、`essay`（content+ocr）、`rubric`（feedback）。
+
+### 要改什么
+1. **加入按钮点击后弹窗**：
+   - ☐ 保留老师的批注（feedback + 等级评分）
+   - 默认**勾选**（因为正是为了把老师批注变成润色标准）。
+2. **传参逻辑**：
+   - 勾选时：`rubric = feedback + "\n\n[教师等级评分: " + grade + "]"`，写作润色页收到后把 `rubric` 作为评分标准喂给 AI。
+   - 不勾选时：`rubric = ""` 或仅含题目要求。
+3. **写作润色页**（`src/app/polish/page.tsx`）已有 `rubric` 输入框，自动填充即可。
+
+## 场景三：学生把「必读文章」加入「个人资料库」
+
+### 现状
+- 学生端必读文章详情页有「加入资料库」入口（或计划加），调 `POST /api/library/items`（个人资料库，非班级备课库）。
+- 文章页已有：学生自己的高亮（`reading_annotations` 里 `highlights`）、自己的笔记（`notes`）、教师的提问（`questions`）、学生的作答（`answers`）。
+
+### 要改什么
+1. **加入按钮点击后弹窗**：
+   - ☐ 保留我的笔记与高亮
+   - ☐ 保留教师提问与我的作答
+   - 默认**全勾选**（个人收藏倾向完整保留）。
+2. **导入后自动生成卡片**：若勾选了任一项，导入完成后在资料库条目下自动生成结构化卡片（调 AI，参考 `src/lib/ai/practice.ts` 的卡片生成逻辑）：
+   - 关键词卡片（从高亮/笔记提取核心词）
+   - 用法卡片（从笔记/作答提取语法点、搭配）
+   - 口语问题卡片（从教师提问/作答转化为口语练习题）
+   - 卡片存 `library_item_cards` 表（新建，或复用现有卡片表结构），字段：`item_id / type(keyword|usage|speaking) / content jsonb / created_at`。
+3. **接口层**：`POST /api/library/items` 新增 `keep_notes: boolean`、`keep_qa: boolean`，导入时把对应数据写入条目 `metadata` 或关联表；生成卡片异步跑（可返回 `card_ids` 或前端轮询）。
+
+## 技术细节统一要求
+- **弹窗组件复用**：新建 `src/components/ui/ImportNotesDialog.tsx`（或类似），三处复用，Props 控制显示哪几个勾选项、默认值、提交回调。
+- **数据表**：
+  - `library_items` 已有 `metadata jsonb`，可存 `annotations`/`highlights`/`teacher_notes`/`student_answers`/`questions`/`answers`。
+  - 卡片表：新建 `db/migrate_library_item_cards.sql`（`item_id uuid fk / type text / content jsonb / created_at`）。
+- **权限**：
+  - 场景一：仅教师（班级备课库）。
+  - 场景二、三：仅学生本人（个人资料库/写作润色）。
+- **复用 AI**：卡片生成 Prompt 可参考 `src/lib/ai/analysis.ts`（提取关键信息结构化）。
+
+## 完成标准
+- 三处导入入口均有「是否保留笔记」弹窗，默认值按上述约定。
+- 选中时，笔记/高亮/批注/问答完整导入目标库/页。
+- 场景三：导入后自动生成关键词/用法/口语问题卡片，在资料库条目详情页可见。
+- `npm run lint`、`npm run build` 通过；迁移 SQL 放 `db/`，同步更新 `DEV_LOG.md`。
