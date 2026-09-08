@@ -431,3 +431,9 @@ LinguaLab 的核心价值主张：**把用户读过的材料，自动转化成�
 - 新增 `get_classroom_student_learning_stats` 安全聚合函数：仅已审批教师可执行，只返回统计指标，不暴露学生作文、对话或错题原文。
 - 笔头作业详情新增「添加到备课资料库」；资料库保存来源引用，查看与生成课件时实时查询最新学生提交、OCR、教师反馈、等级和班级分析，不缓存旧业务快照。
 - 备课资料库详情支持展示笔头作业动态内容；班级主页已移除“建设中”文案。
+
+### 8.13 性能优化：本地 JWT 校验 + 乐观更新
+
+- 新增 `src/lib/supabase/jwt.ts`：用 Node `crypto`（HS256）本地校验 Supabase access token，`getUserClient` 优先走本地解析 `sub`/`email`，避免每个 API 请求都打一次 `auth.getUser` 网络往返；无 `SUPABASE_JWT_SECRET` 时回退原网络校验。需在 `.env.local` 新增 `SUPABASE_JWT_SECRET`（Supabase 控制台 → Project Settings → API → JWT Secret）。
+- 必读文章页勾画/批注、添加题目、删除批注/题目改为「乐观更新」：请求成功后直接更新本地 state，不再 `setReloadKey` 全页重取，交互不再卡 3-5 秒。
+- 必读文章详情 `GET` 改为并行请求（reading/annotations/materials/questions 用 `Promise.all`），减少串行网络往返。

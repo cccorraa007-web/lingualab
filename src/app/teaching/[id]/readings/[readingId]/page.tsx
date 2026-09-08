@@ -124,7 +124,6 @@ export default function ReadingPage() {
   const [addingToLibrary, setAddingToLibrary] = useState(false);
   const [addedToLibrary, setAddedToLibrary] = useState(false);
   const [error, setError] = useState("");
-  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     apiFetch(`/api/classrooms/${params.id}/readings/${params.readingId}`)
@@ -142,7 +141,7 @@ export default function ReadingPage() {
         setAddedToCorpus(d.added_to_corpus ?? false);
       })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
-  }, [params.id, params.readingId, reloadKey]);
+  }, [params.id, params.readingId]);
 
   function handleMouseUp() {
     const sel = window.getSelection();
@@ -173,11 +172,13 @@ export default function ReadingPage() {
       );
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "保存失败");
+      if (data.annotation) {
+        setAnnotations((prev) => [...prev, data.annotation]);
+      }
       setToolbar(null);
       setNoteInput(false);
       setNoteText("");
       window.getSelection()?.removeAllRanges();
-      setReloadKey((k) => k + 1);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
@@ -196,11 +197,13 @@ export default function ReadingPage() {
       );
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "添加题目失败");
+      if (data.question) {
+        setQuestions((prev) => [...prev, data.question]);
+      }
       setToolbar(null);
       setQuestionInput(false);
       setQuestionText("");
       window.getSelection()?.removeAllRanges();
-      setReloadKey((k) => k + 1);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
@@ -212,7 +215,7 @@ export default function ReadingPage() {
         `/api/classrooms/${params.id}/readings/${params.readingId}/questions/${id}`,
         { method: "DELETE" },
       );
-      setReloadKey((k) => k + 1);
+      setQuestions((prev) => prev.filter((q) => q.id !== id));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
@@ -224,7 +227,7 @@ export default function ReadingPage() {
         `/api/classrooms/${params.id}/readings/${params.readingId}/annotations/${id}`,
         { method: "DELETE" },
       );
-      setReloadKey((k) => k + 1);
+      setAnnotations((prev) => prev.filter((a) => a.id !== id));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }

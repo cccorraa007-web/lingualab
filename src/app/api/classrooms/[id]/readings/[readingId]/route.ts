@@ -33,25 +33,42 @@ export async function GET(
     return NextResponse.json({ error: "你不是该班级成员" }, { status: 403 });
   }
 
-  const { data: reading, error: rErr } = await supabase
-    .from("classroom_readings")
-    .select("*")
-    .eq("id", readingId)
-    .eq("classroom_id", id)
-    .single();
+  const [{ data: reading, error: rErr }, { data: annotations, error: aErr }, { data: existingMaterial }, { data: questions, error: qErr }] =
+    await Promise.all([
+      supabase
+        .from("classroom_readings")
+        .select("*")
+        .eq("id", readingId)
+        .eq("classroom_id", id)
+        .single(),
+      supabase
+        .from("reading_annotations")
+        .select("*")
+        .eq("reading_id", readingId)
+        .eq("user_id", auth.user.id)
+        .order("created_at", { ascending: true }),
+      supabase
+        .from("materials")
+        .select("id")
+        .eq("reading_id", readingId)
+        .eq("user_id", auth.user.id)
+        .maybeSingle(),
+      supabase
+        .from("reading_questions")
+        .select("*")
+        .eq("reading_id", readingId)
+        .order("created_at", { ascending: true }),
+    ]);
   if (rErr || !reading) {
     return NextResponse.json({ error: "文章不存在" }, { status: 404 });
   }
-
-  const { data: annotations, error: aErr } = await supabase
-    .from("reading_annotations")
-    .select("*")
-    .eq("reading_id", readingId)
-    .eq("user_id", auth.user.id)
-    .order("created_at", { ascending: true });
   if (aErr) {
     return NextResponse.json({ error: aErr.message }, { status: 500 });
   }
+  if (qErr) {
+    return NextResponse.json({ error: qErr.message }, { status: 500 });
+  }
+  const addedToCorpus = Boolean(existingMaterial);
 
   let studentAnnotations: { email: string; text: string; note: string | null }[] = [];
   if (role === "teacher") {
@@ -79,23 +96,6 @@ export async function GET(
       text: a.text,
       note: a.note ?? null,
     }));
-  }
-
-  const { data: existingMaterial } = await supabase
-    .from("materials")
-    .select("id")
-    .eq("reading_id", readingId)
-    .eq("user_id", auth.user.id)
-    .maybeSingle();
-  const addedToCorpus = Boolean(existingMaterial);
-
-  const { data: questions, error: qErr } = await supabase
-    .from("reading_questions")
-    .select("*")
-    .eq("reading_id", readingId)
-    .order("created_at", { ascending: true });
-  if (qErr) {
-    return NextResponse.json({ error: qErr.message }, { status: 500 });
   }
 
   const questionIds = (questions ?? []).map((q) => q.id);
