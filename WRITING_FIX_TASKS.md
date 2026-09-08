@@ -323,3 +323,52 @@
 - 笔头作业能「添加到备课资料库」，且备课资料库里的素材数据是动态最新的。
 - 备课资料库卡片无「（建设中）」。
 - `npm run lint`、`npm run build` 通过。
+
+---
+
+# 新增：教师端作业批改 —— 一键批改（AI OCR + 对照答案）
+
+## 需求背景
+- 教师在单生批改页（`/teaching/[id]/assignments/[assignmentId]/[userId]`）除了手动打分，需要一个**「一键批改」**入口。
+- 点击后进入界面，要求教师**上传参考答案**（PDF/图片/文档），系统用 **OCR 识别** 每个学生的提交正文/附件，并与参考答案自动对照，生成批改建议（是否正确、错误点、建议分数/等级）。
+
+## 要改什么
+
+### 1) 新增接口 `POST /api/classrooms/[id]/assignments/[assignmentId]/batch-review`
+- 接收：`teacher_answer_files`（multipart/form-data，支持多文件，PDF/图片/docx）。
+- 流程：
+  1. 把教师上传的答案文件上传到存储桶（可复用 `assignment-files` 桶，路径用 `{assignment_id}/teacher_answer/{随机文件名}`）。
+  2. 调用阿里云 NLS / OCR 服务识别教师答案文字（已有 `src/lib/ocr/aliyun.ts` 可参考）。
+  3. 拿到该作业**所有已提交学生**的提交记录（`assignment_submissions`：`content` + `media_urls` + `ocr_text`）。
+  4. 对每个学生：
+     - 如果学生有 `media_urls`（图片/PDF），用 OCR 识别其附件文字（复用现有 `POST .../ocr/route.ts` 逻辑）。
+     - 把学生正文（`content` + `ocr_text`）与教师参考答案喂给 **DeepSeek**，Prompt 要求：
+       - 逐题/逐段对照。
+       - 输出 JSON：`{ student_id, items: [{ question_index, student_answer, reference_answer, is_correct, issues, suggested_grade }] }`。
+  5. 把 AI 返回的批改结果**暂存**（不直接写回 `assignment_submissions`），返回给前端供教师确认/编辑。
+
+### 2) 前端「一键批改」页
+- 路径：新建 `src/app/teaching/[id]/assignments/[assignmentId]/batch-review/page.tsx`（或在单生批改页以弹层/抽屉形式，按你习惯）。
+- 界面：
+  - 上传区：拖拽/点击上传参考答案文件（支持多文件）。
+  - 进度提示：正在 OCR 教师答案 → 正在 OCR 学生附件 → 正在 AI 对照。
+  - 结果表：每行一个学生，展示该生的 `items[]`（题号、学生作答、参考答案、对错、问题、建议等级）。
+  - 每行有「采纳」按钮：点击后把该生的 `grade`（等级）+ `feedback`（AI 生成的批注）写回 `assignment_submissions`（调用现有 `POST .../review/route.ts`，或直接在 batch-review 里批量 upsert）。
+  - 教师可在确认前手动修改等级/反馈。
+
+### 3) 数据层（可选，若需持久化教师答案）
+- 给 `classroom_assignments` 加一列 `teacher_answer_paths text[]`（存教师上传的参考答案路径），迁移写进 `db/migrate_assignments_teacher_answer.sql`。
+- 这样教师下次进入一键批改时能看到已上传的答案，不用重传。
+
+### 4) 复用现有能力
+- OCR：`src/app/api/classrooms/[id]/assignments/[assignmentId]/ocr/route.ts`（已有识别单个文件逻辑）。
+- AI 分析：`src/lib/ai/assignment-analysis.ts`（已有班级分析 Prompt 结构，可参考写 batch-review Prompt）。
+- 批改保存：`POST .../review/route.ts`（入参 `grade` + `feedback`）。
+
+### 5) 权限
+- 仅教师可访问该接口/页面（复用 `_auth.ts` 的 `getClassroomRole === 'teacher'`）。
+
+## 完成标准
+- 教师在单生批改页点「一键批改」→ 上传参考答案 → 系统自动 OCR 所有学生提交 → AI 对照生成批改表 → 教师逐条确认/修改 → 点「采纳」写入数据库。
+- 流程跑通，`npm run lint`、`npm run build` 通过。
+- 迁移 SQL 放进 `db/` 并执行，同步更新 `DEV_LOG.md`。
