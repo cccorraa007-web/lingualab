@@ -44,6 +44,8 @@ export default function NotificationsPage() {
       router.push(`/teaching/${n.classroom_id}/assignments/${n.assignment_id}`);
     } else if (n.classroom_id && n.reading_id) {
       router.push(`/teaching/${n.classroom_id}/readings/${n.reading_id}`);
+    } else if (n.classroom_id) {
+      router.push(`/teaching/${n.classroom_id}/members`);
     }
   }
 

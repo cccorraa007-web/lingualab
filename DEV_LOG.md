@@ -452,3 +452,10 @@ LinguaLab 的核心价值主张：**把用户读过的材料，自动转化成�
 - 新增 `src/lib/extract/text.ts`（docx/pdf 文本提取）、`src/types/pdf-parse.d.ts`（类型声明）。
 - 语料库「导入文章」表单新增「上传文件识别」入口，识别结果自动填入标题与正文可再编辑，随后走原「导入并提取语料」AI 管线。
 - `next.config.ts` 增加 `serverExternalPackages: ["pdf-parse", "jszip"]`，避免 Turbopack 打包触发 pdf-parse 的 CLI 分支导致构建失败。
+
+### 8.16 课堂 bug 修复 + 成员审批通知
+
+- 班级作答分析只统计学生的勾画/批注：`reading_annotations` 按 `classroom_members.role='student'` 过滤，不再把教师的备课勾画当成学生数据。
+- 新增 `db/migrate_notifications_types_fix.sql`：统一通知类型为 `submission/feedback/new_assignment/new_reading/member_request`，修复笔头作业迁移误删 `new_reading` 导致「教师发布必读文章」学生收不到提醒的问题。
+- 新成员加入班级（状态 pending）时通过 `notifyTeacherJoinRequest` 提醒教师审批；通知点击跳转到班级成员审批页。
+- 学生档案 `session_type` 报错：系线上部署的 `get_classroom_student_learning_stats` 聚合函数为旧版本，需重新执行 `db/migrate_teacher_student_profiles.sql` 覆盖即可（仓库版本已无 `session_type` 引用）。

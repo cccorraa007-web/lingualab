@@ -99,3 +99,23 @@ export async function notifyReadingStudents(
   }));
   if (rows.length) await supabase.from("notifications").insert(rows);
 }
+
+export async function notifyTeacherJoinRequest(
+  supabase: SupabaseClient,
+  classroomId: string,
+  joinerName: string,
+): Promise<void> {
+  const { data: teachers } = await supabase
+    .from("classroom_members")
+    .select("user_id")
+    .eq("classroom_id", classroomId)
+    .eq("role", "teacher")
+    .eq("status", "approved");
+  const rows = (teachers ?? []).map((teacher) => ({
+    user_id: teacher.user_id,
+    type: "member_request",
+    classroom_id: classroomId,
+    title: `${joinerName} 申请加入班级，请及时审批`,
+  }));
+  if (rows.length) await supabase.from("notifications").insert(rows);
+}

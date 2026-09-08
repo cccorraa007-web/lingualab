@@ -84,10 +84,14 @@ export async function POST(
     .eq("status", "approved");
 
   const emailByUser = new Map<string, string>();
+  const studentUserIds = new Set<string>();
   const studentEmails = new Set<string>();
   for (const m of members ?? []) {
     if (m.email) emailByUser.set(m.user_id, m.email);
-    if (m.role === "student" && m.email) studentEmails.add(m.email);
+    if (m.role === "student") {
+      studentUserIds.add(m.user_id);
+      if (m.email) studentEmails.add(m.email);
+    }
   }
 
   const studentData = new Map<
@@ -117,6 +121,7 @@ export async function POST(
   }
 
   for (const a of annotations ?? []) {
+    if (!studentUserIds.has(a.user_id)) continue;
     const email = emailByUser.get(a.user_id) ?? "";
     if (!email) continue;
     const entry = ensure(email);

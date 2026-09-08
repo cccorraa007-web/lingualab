@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getUserClient, unauthorized } from "@/lib/supabase/server-auth";
+import { notifyTeacherJoinRequest } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -55,6 +56,12 @@ export async function POST(request: Request) {
   if (mErr) {
     return NextResponse.json({ error: mErr.message }, { status: 500 });
   }
+
+  await notifyTeacherJoinRequest(
+    supabase,
+    classroom.id,
+    auth.user.email ?? "新成员",
+  );
 
   return NextResponse.json({
     classroom,
