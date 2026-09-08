@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getUserClient, unauthorized } from "@/lib/supabase/server-auth";
 import { detectSupportedLanguage } from "@/lib/language";
+import { notifyReadingStudents } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -153,6 +154,8 @@ export async function POST(
     .from("classrooms")
     .update({ lang })
     .eq("id", id);
+
+  await notifyReadingStudents(supabase, id, reading.id, title);
 
   return NextResponse.json({ reading });
 }

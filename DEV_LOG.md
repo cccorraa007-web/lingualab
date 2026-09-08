@@ -405,3 +405,9 @@ LinguaLab 的核心价值主张：**把用户读过的材料，自动转化成�
 - 备课资料库页改为「已添加的备课素材」列表（点进二级）+「添加素材」（三来源勾选收藏）。
 - 新增二级详情页 `/teaching/[id]/library/[itemId]`：展示老师批注、学生作答情况、每个学生提的问题、班级作答分析，并提供「去备课（生成课件）」。
 - 必读文章详情接口对教师额外返回 `student_annotations`（学生勾画/提问）。
+
+### 8.9 班级语言判定 + 预习通知 + 教师端文案
+
+- 班级语言不再默认西语：`db/migrate_classroom_lang_nullable.sql` 把 `classrooms.lang` 去掉默认值与非空约束，并清理无必读文章班级的 lang；发布第一篇必读文章后才判定语言（已有逻辑）。
+- 教师发布必读文章（课前预习）时通知学生：`db/migrate_reading_notifications.sql` 通知类型新增 `new_reading`；`notifyReadingStudents` + 在 readings POST 里调用，学生通知红点恢复。
+- 教师端文案：必读文章→「课前预习」、笔头作业→「课后作业」（`assignments/page.tsx`、`WrittenAssignments.tsx` 按角色显示）。

@@ -56,7 +56,7 @@ export default function WrittenAssignments({ classroomId, role }: { classroomId:
   }
 
   return <section className="mt-8 border-t border-zinc-100 pt-8">
-    <div className="flex items-center justify-between gap-3"><div><h2 className="text-lg font-semibold text-zinc-900">笔头作业</h2><p className="mt-1 text-xs text-zinc-400">点击作业进入详情、提交或批改。</p></div>{role === "teacher" && <button onClick={() => setShowPublish((v) => !v)} className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700">{showPublish ? "收起" : "发布笔头作业"}</button>}</div>
+    <div className="flex items-center justify-between gap-3"><div><h2 className="text-lg font-semibold text-zinc-900">{role === "teacher" ? "课后作业" : "笔头作业"}</h2><p className="mt-1 text-xs text-zinc-400">点击作业进入详情、提交或批改。</p></div>{role === "teacher" && <button onClick={() => setShowPublish((v) => !v)} className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700">{showPublish ? "收起" : "发布课后作业"}</button>}</div>
     {error && <div className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</div>}
     {role === "teacher" && showPublish && <div className="mt-4 space-y-3 rounded-xl border border-orange-200 bg-orange-50/40 p-4">
       <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={300} placeholder="作业题目" className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm" />
@@ -65,7 +65,7 @@ export default function WrittenAssignments({ classroomId, role }: { classroomId:
       <input type="file" multiple accept="image/*,audio/*,video/mp4,video/webm,application/pdf" onChange={(e) => setFiles(Array.from(e.target.files ?? []).slice(0, 5))} className="block w-full text-sm text-zinc-500" />
       <button onClick={publish} disabled={busy} className="rounded-lg bg-orange-600 px-5 py-2 text-sm font-semibold text-white disabled:opacity-50">{busy ? "发布中…" : "发布作业"}</button>
     </div>}
-    <div className="mt-4 space-y-2">{loading ? <Empty text="加载中…" /> : assignments.length === 0 ? <Empty text="还没有笔头作业" /> : assignments.map((assignment) => {
+    <div className="mt-4 space-y-2">{loading ? <Empty text="加载中…" /> : assignments.length === 0 ? <Empty text={role === "teacher" ? "还没有课后作业" : "还没有笔头作业"} /> : assignments.map((assignment) => {
       const ended = Boolean(serverNow) && new Date(serverNow).getTime() > new Date(assignment.ends_at).getTime();
       const mine = submissions.find((item) => item.assignment_id === assignment.id);
       return <Link key={assignment.id} href={`/teaching/${classroomId}/assignments/${assignment.id}`} className="flex items-center justify-between rounded-xl border border-zinc-100 bg-white p-4 transition hover:shadow-md"><div><p className="font-medium text-zinc-900">{assignment.title}</p><p className="mt-1 text-xs text-zinc-400">截止 {new Date(assignment.ends_at).toLocaleString("zh-CN")}</p></div><div className="flex items-center gap-2 text-xs"><span className={`rounded-full px-2.5 py-0.5 font-semibold ${ended ? "bg-red-100 text-red-600" : "bg-emerald-100 text-emerald-700"}`}>{ended ? "已截止" : "进行中"}</span><span className="text-zinc-500">{role === "teacher" ? `已交 ${counts[assignment.id]?.submitted ?? 0}/${counts[assignment.id]?.total ?? 0}` : mine ? mine.grade ? `已评分 ${mine.grade}` : mine.score != null ? `历史评分 ${mine.score}` : "已提交" : "未提交"}</span></div></Link>;

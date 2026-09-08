@@ -164,7 +164,9 @@ export default function ClassroomAssignmentsPage() {
       <section className="mt-8">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <h2 className="text-lg font-semibold text-zinc-900">必读文章</h2>
+            <h2 className="text-lg font-semibold text-zinc-900">
+              {myRole === "teacher" ? "课前预习" : "必读文章"}
+            </h2>
             {(classroomLang === "es" || classroomLang === "en") && (
               <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
                 {langMeta(classroomLang as "es" | "en").label}
@@ -264,7 +266,7 @@ export default function ClassroomAssignmentsPage() {
             </div>
           ) : readings.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-zinc-200 p-8 text-center text-zinc-400">
-              还没有必读文章
+              {myRole === "teacher" ? "还没有课前预习" : "还没有必读文章"}
             </div>
           ) : (
             readings.map((r) => {

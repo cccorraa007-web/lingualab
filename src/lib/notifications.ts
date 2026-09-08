@@ -77,3 +77,25 @@ export async function notifyAssignmentStudent(
 ): Promise<void> {
   await supabase.from("notifications").insert({ user_id: userId, type: "feedback", classroom_id: classroomId, assignment_id: assignmentId, title });
 }
+
+export async function notifyReadingStudents(
+  supabase: SupabaseClient,
+  classroomId: string,
+  readingId: string,
+  title: string,
+): Promise<void> {
+  const { data } = await supabase
+    .from("classroom_members")
+    .select("user_id")
+    .eq("classroom_id", classroomId)
+    .eq("role", "student")
+    .eq("status", "approved");
+  const rows = (data ?? []).map((student) => ({
+    user_id: student.user_id,
+    type: "new_reading",
+    classroom_id: classroomId,
+    reading_id: readingId,
+    title: `新课前预习：${title}`,
+  }));
+  if (rows.length) await supabase.from("notifications").insert(rows);
+}
