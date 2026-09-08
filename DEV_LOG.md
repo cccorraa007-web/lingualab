@@ -411,3 +411,8 @@ LinguaLab 的核心价值主张：**把用户读过的材料，自动转化成�
 - 班级语言不再默认西语：`db/migrate_classroom_lang_nullable.sql` 把 `classrooms.lang` 去掉默认值与非空约束，并清理无必读文章班级的 lang；发布第一篇必读文章后才判定语言（已有逻辑）。
 - 教师发布必读文章（课前预习）时通知学生：`db/migrate_reading_notifications.sql` 通知类型新增 `new_reading`；`notifyReadingStudents` + 在 readings POST 里调用，学生通知红点恢复。
 - 教师端文案：必读文章→「课前预习」、笔头作业→「课后作业」（`assignments/page.tsx`、`WrittenAssignments.tsx` 按角色显示）。
+
+### 8.10 口语练习记录修复 + 写作润色交互交接
+
+- 口语练习记录失败根因：`practice_sessions` 表缺 `assessment` 列，POST 静默失败。把 `assessment` 直接写进 `db/migrate_practice_sessions.sql` 的建表（自包含，参照队友 `writing_sessions` 做法）；旧库执行 `db/migrate_practice_sessions_assessment.sql` 即可。
+- 写作润色交互问题已写进 `WRITING_FIX_TASKS.md` 交接队友：① 润色提交后清空输入、原文转入结果页留存并对 AI 修改处高亮；② 加入错题本后回到初始输入状态。

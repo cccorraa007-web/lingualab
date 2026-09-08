@@ -7,6 +7,7 @@ create table if not exists public.practice_sessions (
   rounds int not null default 0,
   transcript jsonb not null default '[]'::jsonb,
   polish jsonb not null default '[]'::jsonb,
+  assessment jsonb,
   created_at timestamptz not null default now()
 );
 
