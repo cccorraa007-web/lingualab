@@ -459,3 +459,8 @@ LinguaLab 的核心价值主张：**把用户读过的材料，自动转化成�
 - 新增 `db/migrate_notifications_types_fix.sql`：统一通知类型为 `submission/feedback/new_assignment/new_reading/member_request`，修复笔头作业迁移误删 `new_reading` 导致「教师发布必读文章」学生收不到提醒的问题。
 - 新成员加入班级（状态 pending）时通过 `notifyTeacherJoinRequest` 提醒教师审批；通知点击跳转到班级成员审批页。
 - 学生档案 `session_type` 报错：系线上部署的 `get_classroom_student_learning_stats` 聚合函数为旧版本，需重新执行 `db/migrate_teacher_student_profiles.sql` 覆盖即可（仓库版本已无 `session_type` 引用）。
+
+### 8.17 学生档案聚合函数修复 + 删除按钮交互
+
+- `db/migrate_teacher_student_profiles.sql` 改为 `drop function if exists` + `create function`，避免 `create or replace` 因旧版返回类型/列不一致（session_type、user_id 歧义）而失败；函数内所有列均加 `m.`/`x.` 前缀消除歧义。
+- 删除按钮（语料库文章删除、班级删除）由原生 `window.confirm` 改为内联两段确认（点「删除」→「确认删除 / 取消」），避免原生弹窗在隧道环境下延迟/被拦截导致的「点很多次才反应」。

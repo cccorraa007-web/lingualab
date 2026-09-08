@@ -29,6 +29,7 @@ export default function TeachingPage() {
   const [joining, setJoining] = useState(false);
   const [joinMsg, setJoinMsg] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
 
   useEffect(() => {
     apiFetch("/api/classrooms")
@@ -88,9 +89,11 @@ export default function TeachingPage() {
   }
 
   async function handleDelete(c: Classroom) {
-    if (!window.confirm(`确定删除班级「${c.name}」吗？该班级的成员、预习、作业、通知等数据都会被一并删除，且无法恢复。`)) {
+    if (confirmingId !== c.id) {
+      setConfirmingId(c.id);
       return;
     }
+    setConfirmingId(null);
     setDeletingId(c.id);
     setError("");
     try {
@@ -248,13 +251,30 @@ export default function TeachingPage() {
               </span>
             </Link>
             {c.can_delete && (
-              <button
-                onClick={() => handleDelete(c)}
-                disabled={deletingId === c.id}
-                className="ml-4 shrink-0 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
-              >
-                {deletingId === c.id ? "删除中…" : "删除"}
-              </button>
+              confirmingId === c.id ? (
+                <span className="ml-4 flex shrink-0 items-center gap-1">
+                  <button
+                    onClick={() => handleDelete(c)}
+                    className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700"
+                  >
+                    确认删除
+                  </button>
+                  <button
+                    onClick={() => setConfirmingId(null)}
+                    className="rounded-lg border border-zinc-200 px-3 py-1.5 text-xs text-zinc-600 hover:bg-zinc-50"
+                  >
+                    取消
+                  </button>
+                </span>
+              ) : (
+                <button
+                  onClick={() => handleDelete(c)}
+                  disabled={deletingId === c.id}
+                  className="ml-4 shrink-0 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+                >
+                  {deletingId === c.id ? "删除中…" : "删除"}
+                </button>
+              )
             )}
           </div>
         ))}

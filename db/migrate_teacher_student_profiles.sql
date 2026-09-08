@@ -1,4 +1,7 @@
-create or replace function public.get_classroom_student_learning_stats(p_classroom_id uuid)
+-- 先删除旧版本，避免 create or replace 因返回类型/列不一致而失败（曾出现 session_type、user_id 歧义等旧版残留）
+drop function if exists public.get_classroom_student_learning_stats(uuid);
+
+create function public.get_classroom_student_learning_stats(p_classroom_id uuid)
 returns table (
   user_id uuid, email text, self_reading_count bigint,
   speaking_count bigint, speaking_avg_score numeric, speaking_avg_duration numeric, speaking_last_7_days bigint,

@@ -35,6 +35,7 @@ export default function CorpusPage() {
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -117,7 +118,11 @@ export default function CorpusPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!window.confirm("确定删除这篇文章及其所有卡片吗？")) return;
+    if (confirmingId !== id) {
+      setConfirmingId(id);
+      return;
+    }
+    setConfirmingId(null);
     try {
       await apiFetch(`/api/materials/${id}`, { method: "DELETE" });
       setReloadKey((k) => k + 1);
@@ -320,12 +325,29 @@ export default function CorpusPage() {
                   {new Date(m.created_at).toLocaleString("zh-CN")}
                 </p>
               </div>
-              <button
-                onClick={() => handleDelete(m.id)}
-                className="shrink-0 rounded-lg px-2 py-1 text-sm text-zinc-300 hover:bg-red-50 hover:text-red-600"
-              >
-                删除
-              </button>
+              {confirmingId === m.id ? (
+                <span className="flex shrink-0 items-center gap-1">
+                  <button
+                    onClick={() => handleDelete(m.id)}
+                    className="rounded-lg bg-red-600 px-2 py-1 text-xs font-semibold text-white hover:bg-red-700"
+                  >
+                    确认删除
+                  </button>
+                  <button
+                    onClick={() => setConfirmingId(null)}
+                    className="rounded-lg border border-zinc-200 px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-50"
+                  >
+                    取消
+                  </button>
+                </span>
+              ) : (
+                <button
+                  onClick={() => handleDelete(m.id)}
+                  className="shrink-0 rounded-lg px-2 py-1 text-sm text-zinc-300 hover:bg-red-50 hover:text-red-600"
+                >
+                  删除
+                </button>
+              )}
             </div>
           </div>
         ))}
