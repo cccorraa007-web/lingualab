@@ -31,5 +31,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const { data: recipient } = await auth.client.from("assignment_recipients").select("id").eq("assignment_id", assignmentId).eq("user_id", auth.user.id).maybeSingle();
   if (!recipient) return NextResponse.json({ error: "这份作业未发布给你" }, { status: 403 });
   const { data: submission } = await auth.client.from("assignment_submissions").select("*").eq("assignment_id", assignmentId).eq("user_id", auth.user.id).maybeSingle();
-  return NextResponse.json({ assignment: await signed(auth.client, assignment), submission: submission ? await signed(auth.client, submission) : null, my_role: role });
+  const studentAssignment = Object.fromEntries(Object.entries(assignment).filter(([key]) => key !== "teacher_answer_paths" && key !== "teacher_answer_text"));
+  return NextResponse.json({ assignment: await signed(auth.client, studentAssignment), submission: submission ? await signed(auth.client, submission) : null, my_role: role });
 }

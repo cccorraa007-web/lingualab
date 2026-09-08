@@ -12,7 +12,8 @@ values (
     'image/png','image/jpeg','image/webp','image/gif',
     'audio/mpeg','audio/wav','audio/webm',
     'video/mp4','video/webm',
-    'application/pdf'
+    'application/pdf',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
   ]
 )
 on conflict (id) do update
@@ -27,7 +28,18 @@ create policy "assignment_files_upload"
   on storage.objects for insert to authenticated
   with check (
     bucket_id = 'assignment-files'
-    and (storage.foldername(name))[2] = auth.uid()::text
+    and (
+      (storage.foldername(name))[2] = auth.uid()::text
+      or (
+        (storage.foldername(name))[2] = 'teacher_answer'
+        and exists (
+          select 1 from public.classroom_assignments a
+          join public.classroom_members m on m.classroom_id = a.classroom_id
+          where a.id::text = (storage.foldername(name))[1]
+            and m.user_id = auth.uid() and m.status = 'approved' and m.role = 'teacher'
+        )
+      )
+    )
   );
 
 drop policy if exists "assignment_files_read" on storage.objects;
@@ -36,7 +48,7 @@ create policy "assignment_files_read"
   using (
     bucket_id = 'assignment-files'
     and (
-      (storage.foldername(name))[2] = auth.uid()::text
+      ((storage.foldername(name))[2] = auth.uid()::text and (storage.foldername(name))[2] <> 'teacher_answer')
       or exists (
         select 1
         from public.classroom_assignments a
@@ -60,5 +72,16 @@ create policy "assignment_files_delete_own"
   on storage.objects for delete to authenticated
   using (
     bucket_id = 'assignment-files'
-    and (storage.foldername(name))[2] = auth.uid()::text
+    and (
+      (storage.foldername(name))[2] = auth.uid()::text
+      or (
+        (storage.foldername(name))[2] = 'teacher_answer'
+        and exists (
+          select 1 from public.classroom_assignments a
+          join public.classroom_members m on m.classroom_id = a.classroom_id
+          where a.id::text = (storage.foldername(name))[1]
+            and m.user_id = auth.uid() and m.status = 'approved' and m.role = 'teacher'
+        )
+      )
+    )
   );

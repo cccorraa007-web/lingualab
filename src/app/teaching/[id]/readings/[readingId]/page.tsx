@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/auth";
+import ImportNotesDialog from "@/components/ui/ImportNotesDialog";
 
 interface Reading {
   id: string;
@@ -113,6 +114,7 @@ export default function ReadingPage() {
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [answeredCount, setAnsweredCount] = useState(0);
+  const [answers, setAnswers] = useState<unknown[]>([]);
   const [myRole, setMyRole] = useState<string>("student");
   const [toolbar, setToolbar] = useState<ToolbarState | null>(null);
   const [noteInput, setNoteInput] = useState(false);
@@ -125,6 +127,7 @@ export default function ReadingPage() {
   const [addedToLibrary, setAddedToLibrary] = useState(false);
   const [error, setError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
+  const [importDialog, setImportDialog] = useState<"corpus" | "library" | null>(null);
 
   useEffect(() => {
     apiFetch(`/api/classrooms/${params.id}/readings/${params.readingId}`)
@@ -138,6 +141,7 @@ export default function ReadingPage() {
         setAnnotations(d.annotations ?? []);
         setQuestions(d.questions ?? []);
         setAnsweredCount((d.answers ?? []).length);
+        setAnswers(d.answers ?? []);
         setMyRole(d.my_role ?? "student");
         setAddedToCorpus(d.added_to_corpus ?? false);
       })
@@ -230,7 +234,7 @@ export default function ReadingPage() {
     }
   }
 
-  async function addToCorpus() {
+  async function addToCorpus(keepNotes: boolean, keepQa: boolean) {
     if (!reading) return;
     setAddingToCorpus(true);
     setError("");
@@ -243,6 +247,12 @@ export default function ReadingPage() {
           title: reading.title,
           text: reading.raw_text,
           reading_id: params.readingId,
+          keep_notes: keepNotes,
+          keep_qa: keepQa,
+          metadata: {
+            ...(keepNotes ? { annotations } : {}),
+            ...(keepQa ? { questions, answers } : {}),
+          },
         }),
       });
       const data = await res.json();
@@ -256,7 +266,7 @@ export default function ReadingPage() {
     }
   }
 
-  async function addToLibrary() {
+  async function addToLibrary(keepNotes: boolean) {
     setAddingToLibrary(true);
     setError("");
     try {
@@ -268,6 +278,7 @@ export default function ReadingPage() {
           body: JSON.stringify({
             source: "reading",
             source_id: params.readingId,
+            keep_notes: keepNotes,
           }),
         },
       );
@@ -365,6 +376,8 @@ export default function ReadingPage() {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
+      <ImportNotesDialog open={importDialog === "corpus"} title="加入个人语料库" options={[{ key: "keep_notes", label: "保留我的笔记与高亮", defaultChecked: true }, { key: "keep_qa", label: "保留教师提问与我的作答", defaultChecked: true }]} busy={addingToCorpus} onCancel={() => setImportDialog(null)} onConfirm={(values) => { setImportDialog(null); void addToCorpus(values.keep_notes, values.keep_qa); }} />
+      <ImportNotesDialog open={importDialog === "library"} title="添加到备课资料库" options={[{ key: "keep_notes", label: "保留笔记与高亮（含教师批注、学生作答和班级分析）" }]} busy={addingToLibrary} onCancel={() => setImportDialog(null)} onConfirm={(values) => { setImportDialog(null); void addToLibrary(values.keep_notes); }} />
       <Link
         href={`/teaching/${params.id}/assignments`}
         className="text-sm text-zinc-500 hover:text-orange-600"
@@ -400,7 +413,7 @@ export default function ReadingPage() {
             ) : (
               <div className="flex flex-wrap items-center gap-3">
                 <button
-                  onClick={addToCorpus}
+                  onClick={() => setImportDialog("corpus")}
                   disabled={addingToCorpus}
                   className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-50"
                 >
@@ -439,7 +452,7 @@ export default function ReadingPage() {
               </>
             ) : (
               <button
-                onClick={addToLibrary}
+                onClick={() => setImportDialog("library")}
                 disabled={addingToLibrary}
                 className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-50"
               >
