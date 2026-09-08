@@ -52,6 +52,12 @@ interface ReadingData {
   answers: Answer[];
 }
 
+interface AssignmentData {
+  assignment: { title: string; content: string; class_summary: string | null; class_analysis_at: string | null };
+  recipients: { user_id: string; email: string | null }[];
+  submissions: { id: string; user_id: string; content: string | null; ocr_text: string | null; feedback: string | null; grade: string | null }[];
+}
+
 const LESSON_TYPES = [
   { value: "blank", label: "填空题" },
   { value: "choice", label: "选择题" },
@@ -63,6 +69,7 @@ export default function LibraryItemDetailPage() {
   const params = useParams<{ id: string; itemId: string }>();
   const [item, setItem] = useState<LibraryItem | null>(null);
   const [readingData, setReadingData] = useState<ReadingData | null>(null);
+  const [assignmentData, setAssignmentData] = useState<AssignmentData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -92,6 +99,11 @@ export default function LibraryItemDetailPage() {
           const rd = await res.json();
           if (rd.error) throw new Error(rd.error);
           setReadingData(rd);
+        } else if (d.item.source === "assignment") {
+          const res = await apiFetch(`/api/classrooms/${params.id}/assignments/${d.item.source_id}`);
+          const ad = await res.json();
+          if (ad.error) throw new Error(ad.error);
+          setAssignmentData(ad);
         }
       })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)))
@@ -167,6 +179,7 @@ export default function LibraryItemDetailPage() {
   }
 
   const isReading = item.source === "reading";
+  const isAssignment = item.source === "assignment";
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
@@ -312,6 +325,12 @@ export default function LibraryItemDetailPage() {
               查看/生成完整分析 →
             </Link>
           </section>
+        </div>
+      ) : isAssignment && assignmentData ? (
+        <div className="mt-6 space-y-8">
+          <section><h2 className="text-lg font-semibold text-zinc-900">作业要求</h2><p className="mt-3 whitespace-pre-wrap rounded-xl border border-zinc-100 bg-white p-4 text-sm leading-6 text-zinc-700">{assignmentData.assignment.content}</p></section>
+          <section><h2 className="text-lg font-semibold text-zinc-900">学生最新提交与批改</h2><div className="mt-3 space-y-3">{assignmentData.submissions.length === 0 ? <p className="text-sm text-zinc-400">暂无提交</p> : assignmentData.submissions.map((submission) => { const email = assignmentData.recipients.find((r) => r.user_id === submission.user_id)?.email || submission.user_id; return <div key={submission.id} className="rounded-xl border border-zinc-100 bg-white p-4"><div className="flex justify-between gap-3"><p className="font-medium text-zinc-800">{email}</p><span className="text-xs text-orange-700">{submission.grade || "未评分"}</span></div><p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-zinc-600">{[submission.content, submission.ocr_text].filter(Boolean).join("\n\n") || "无文字内容"}</p>{submission.feedback && <p className="mt-2 rounded-lg bg-zinc-50 p-3 text-sm text-zinc-600">教师反馈：{submission.feedback}</p>}</div>; })}</div></section>
+          <section><h2 className="text-lg font-semibold text-zinc-900">班级作答分析</h2>{assignmentData.assignment.class_summary ? <p className="mt-3 whitespace-pre-wrap rounded-xl border border-orange-100 bg-orange-50/40 p-4 text-sm leading-6 text-zinc-700">{assignmentData.assignment.class_summary}</p> : <p className="mt-3 text-sm text-zinc-400">尚未生成班级作答分析。</p>}<Link href={`/teaching/${params.id}/assignments/${item.source_id}/analysis`} className="mt-2 inline-block text-sm text-orange-600 hover:underline">查看/重新生成分析 →</Link></section>
         </div>
       ) : (
         <div className="mt-6 rounded-xl border border-dashed border-zinc-200 p-10 text-center text-sm text-zinc-400">

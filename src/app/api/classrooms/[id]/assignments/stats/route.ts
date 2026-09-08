@@ -7,7 +7,8 @@ const GRADE_POINTS: Record<string, number> = { "A+": 100, A: 95, "B+": 88, B: 82
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await getUserClient(request); if (!auth) return unauthorized(); const { id } = await params;
-  if (!await getClassroomRole(auth.client, id, auth.user.id)) return NextResponse.json({ error: "你不是该班级成员" }, { status: 403 });
+  const role = await getClassroomRole(auth.client, id, auth.user.id);
+  if (!role) return NextResponse.json({ error: "你不是该班级成员" }, { status: 403 });
 
   const [{ data: assignments }, { data: members }, { data: readings }] = await Promise.all([
     auth.client.from("classroom_assignments").select("id, ends_at").eq("classroom_id", id),
@@ -66,5 +67,16 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
   const self = stats.find((item) => item.user_id === auth.user.id) ?? null;
   const top_three = stats.slice(0, 3).map(({ email, submitted, total, on_time, done_readings, grade_distribution }) => ({ email, submitted, total, on_time, done_readings, grade_distribution }));
-  return NextResponse.json({ self, top_three, total_assignments: totalCount });
+  let analyses: { type: "预习" | "课后作业"; title: string; summary: string; analyzed_at: string | null }[] = [];
+  if (role === "teacher") {
+    const [{ data: readingAnalysis }, { data: assignmentAnalysis }] = await Promise.all([
+      auth.client.from("classroom_readings").select("title, class_summary, class_analysis_at").eq("classroom_id", id).not("class_summary", "is", null),
+      auth.client.from("classroom_assignments").select("title, class_summary, class_analysis_at").eq("classroom_id", id).not("class_summary", "is", null),
+    ]);
+    analyses = [
+      ...(readingAnalysis ?? []).map((item) => ({ type: "预习" as const, title: item.title, summary: item.class_summary ?? "", analyzed_at: item.class_analysis_at })),
+      ...(assignmentAnalysis ?? []).map((item) => ({ type: "课后作业" as const, title: item.title, summary: item.class_summary ?? "", analyzed_at: item.class_analysis_at })),
+    ].sort((a, b) => new Date(b.analyzed_at ?? 0).getTime() - new Date(a.analyzed_at ?? 0).getTime());
+  }
+  return NextResponse.json({ self, top_three, total_assignments: totalCount, all_students: role === "teacher" ? stats : undefined, analyses: role === "teacher" ? analyses : undefined });
 }

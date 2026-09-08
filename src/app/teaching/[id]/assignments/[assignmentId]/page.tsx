@@ -20,6 +20,7 @@ export default function AssignmentDetailPage() {
   const [role, setRole] = useState<"teacher" | "student">("student");
   const [content, setContent] = useState(""); const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false); const [error, setError] = useState("");
+  const [libraryState, setLibraryState] = useState<"idle" | "adding" | "added">("idle");
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
@@ -47,11 +48,20 @@ export default function AssignmentDetailPage() {
     router.push("/polish");
   }
 
+  async function addToLibrary() {
+    setLibraryState("adding"); setError("");
+    try {
+      const response = await apiFetch(`/api/classrooms/${params.id}/library/items`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ source: "assignment", source_id: params.assignmentId }) });
+      const data = await response.json(); if (!response.ok) throw new Error(data.error || "添加失败");
+      setLibraryState("added");
+    } catch (e) { setLibraryState("idle"); setError(e instanceof Error ? e.message : "添加失败"); }
+  }
+
   if (!assignment) return <div className="mx-auto max-w-4xl px-4 py-10 text-zinc-500">{error || "加载中…"}</div>;
   const submittedIds = new Set(submissions.map((item) => item.user_id));
   return <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
     <Link href={`/teaching/${params.id}/assignments`} className="text-sm text-zinc-500 hover:text-orange-600">← 返回作业列表</Link>
-    <div className="mt-4 rounded-2xl border border-zinc-100 bg-white p-6"><div className="flex items-start justify-between gap-4"><div><h1 className="text-2xl font-bold text-zinc-900">{assignment.title}</h1><p className="mt-3 whitespace-pre-wrap leading-7 text-zinc-700">{assignment.content}</p></div>{role === "teacher" && <Link href={`/teaching/${params.id}/assignments/${params.assignmentId}/analysis`} className="shrink-0 rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white">班级作答分析</Link>}</div>
+    <div className="mt-4 rounded-2xl border border-zinc-100 bg-white p-6"><div className="flex items-start justify-between gap-4"><div><h1 className="text-2xl font-bold text-zinc-900">{assignment.title}</h1><p className="mt-3 whitespace-pre-wrap leading-7 text-zinc-700">{assignment.content}</p></div>{role === "teacher" && <div className="flex shrink-0 flex-col gap-2"><Link href={`/teaching/${params.id}/assignments/${params.assignmentId}/analysis`} className="rounded-lg bg-orange-600 px-4 py-2 text-center text-sm font-semibold text-white">班级作答分析</Link><button onClick={addToLibrary} disabled={libraryState !== "idle"} className="rounded-lg border border-orange-200 px-4 py-2 text-sm font-semibold text-orange-700 disabled:opacity-60">{libraryState === "adding" ? "添加中…" : libraryState === "added" ? "已加入备课资料库" : "添加到备课资料库"}</button></div>}</div>
       {assignment.media_urls?.length > 0 && <div className="mt-4 flex flex-wrap gap-2">{assignment.media_urls.map((m, i) => <a key={m.path} href={m.url} target="_blank" rel="noreferrer" className="rounded-lg border border-orange-200 px-3 py-2 text-sm text-orange-700">教师附件 {i + 1}</a>)}</div>}
     </div>
     {error && <div className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</div>}

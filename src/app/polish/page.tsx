@@ -13,6 +13,7 @@ export default function PolishPage() {
   const [essay, setEssay] = useState("");
   const [rubric, setRubric] = useState("");
   const [result, setResult] = useState<WritingPolishResult | null>(null);
+  const [resultInput, setResultInput] = useState<{ title: string; essay: string; rubric: string } | null>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -45,7 +46,11 @@ export default function PolishPage() {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "润色失败");
+      setResultInput({ title: title.trim(), essay: essay.trim(), rubric: rubric.trim() });
       setResult(data as WritingPolishResult);
+      setTitle("");
+      setEssay("");
+      setRubric("");
       setSelected(new Set());
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "润色失败");
@@ -101,6 +106,8 @@ export default function PolishPage() {
       if (!response.ok) throw new Error(data.error || "保存失败");
       setSaved(true);
       setSelected(new Set());
+      setResult(null);
+      setResultInput(null);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "保存失败");
     } finally {
@@ -193,9 +200,21 @@ export default function PolishPage() {
       </form>
 
       {error && <div role="alert" className="mt-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>}
+      {saved && !result && <div className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">已加入错题本，可以开始输入下一篇作文。</div>}
 
       {result && (
         <div className="mt-8 space-y-8" aria-live="polite">
+          {resultInput && (
+            <section className="rounded-2xl border border-zinc-100 bg-white p-5 shadow-sm sm:p-6">
+              <h2 className="text-xl font-bold text-zinc-900">原文记录</h2>
+              <p className="mt-2 text-sm font-semibold text-zinc-700">{resultInput.title}</p>
+              <div className="mt-4 whitespace-pre-wrap rounded-xl bg-zinc-50 p-4 text-sm leading-7 text-zinc-700">
+                <HighlightedOriginal text={resultInput.essay} fragments={result.polish.map((item) => item.original)} />
+              </div>
+              {resultInput.rubric && <p className="mt-3 whitespace-pre-wrap text-xs leading-5 text-zinc-500">评分标准：{resultInput.rubric}</p>}
+              <p className="mt-2 text-xs text-zinc-400">红色下划线标出 AI 建议修改的原文片段。</p>
+            </section>
+          )}
           <section className="rounded-2xl border border-zinc-100 bg-white p-5 shadow-sm sm:p-6">
             <div className="flex flex-wrap items-end justify-between gap-4">
               <div>
@@ -207,10 +226,10 @@ export default function PolishPage() {
               </div>
               <button
                 type="button"
-                onClick={() => { setResult(null); setSelected(new Set()); setSaved(false); }}
+                onClick={() => { setResult(null); setResultInput(null); setSelected(new Set()); setSaved(false); }}
                 className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-600 hover:bg-zinc-50"
               >
-                修改作文后重新分析
+                收起结果，开始下一篇
               </button>
             </div>
             {result.assessment.summary && <p className="mt-4 leading-7 text-zinc-700">{result.assessment.summary}</p>}
@@ -296,4 +315,34 @@ function FeedbackList({ title, items, tone }: { title: string; items: string[]; 
 function TextPanel({ label, text, tone }: { label: string; text: string; tone: "bad" | "good" }) {
   const classes = tone === "bad" ? "bg-red-50/60 text-red-500" : "bg-emerald-50/60 text-emerald-600";
   return <div className={`rounded-lg p-3 ${classes}`}><p className="text-xs font-semibold">{label}</p><p className="mt-1 text-sm leading-6 text-zinc-700">{text}</p></div>;
+}
+
+function HighlightedOriginal({ text, fragments }: { text: string; fragments: string[] }) {
+  const ranges: { start: number; end: number }[] = [];
+  for (const fragment of fragments.filter(Boolean)) {
+    let from = 0;
+    while (from < text.length) {
+      const start = text.indexOf(fragment, from);
+      if (start < 0) break;
+      ranges.push({ start, end: start + fragment.length });
+      from = start + fragment.length;
+    }
+  }
+  ranges.sort((a, b) => a.start - b.start || b.end - a.end);
+  const merged: { start: number; end: number }[] = [];
+  for (const range of ranges) {
+    const last = merged.at(-1);
+    if (last && range.start <= last.end) last.end = Math.max(last.end, range.end);
+    else merged.push({ ...range });
+  }
+  if (!merged.length) return <>{text}</>;
+  const nodes: React.ReactNode[] = [];
+  let cursor = 0;
+  merged.forEach((range, index) => {
+    if (range.start > cursor) nodes.push(text.slice(cursor, range.start));
+    nodes.push(<mark key={`${range.start}-${index}`} className="bg-red-100 text-red-700 underline decoration-red-400 decoration-2 underline-offset-2">{text.slice(range.start, range.end)}</mark>);
+    cursor = range.end;
+  });
+  if (cursor < text.length) nodes.push(text.slice(cursor));
+  return <>{nodes}</>;
 }

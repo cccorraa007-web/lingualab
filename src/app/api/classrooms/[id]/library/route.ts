@@ -79,11 +79,17 @@ async function fetchTexts(
   if (assignmentIds.length > 0) {
     const { data } = await supabase
       .from("classroom_assignments")
-      .select("id, title, content")
+      .select("id, title, content, class_summary")
       .in("id", assignmentIds)
       .eq("classroom_id", classroomId);
+    const [{ data: submissions }, { data: recipients }] = await Promise.all([
+      supabase.from("assignment_submissions").select("assignment_id, user_id, content, ocr_text, feedback, grade").in("assignment_id", assignmentIds),
+      supabase.from("assignment_recipients").select("assignment_id, user_id, email").in("assignment_id", assignmentIds),
+    ]);
     for (const a of data ?? []) {
-      results.push({ title: a.title, text: a.content ?? "" });
+      const emailByUser = new Map((recipients ?? []).filter((r) => r.assignment_id === a.id).map((r) => [r.user_id, r.email || r.user_id]));
+      const latestSubmissions = (submissions ?? []).filter((s) => s.assignment_id === a.id).map((s) => `【${emailByUser.get(s.user_id) ?? s.user_id}】\n提交：${[s.content, s.ocr_text].filter(Boolean).join("\n") || "无文字"}\n等级：${s.grade || "未评分"}\n反馈：${s.feedback || "无"}`).join("\n\n");
+      results.push({ title: a.title, text: `作业要求：\n${a.content ?? ""}\n\n最新学生提交与批改：\n${latestSubmissions || "暂无提交"}\n\n最新班级作答分析：\n${a.class_summary || "尚未生成"}` });
     }
   }
 
