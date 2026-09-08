@@ -16,7 +16,7 @@ const TEACHER_CARDS = [
   {
     href: "assignments",
     title: "布置作业",
-    desc: "发布必读文章（课前预习）与笔头作业（课后作业），追踪作业收发与平时成绩。",
+    desc: "发布课前预习与课后作业，追踪作业收发与平时成绩。",
     emoji: "📝",
   },
   {
@@ -106,7 +106,7 @@ export default function ClassroomDashboardPage() {
         href="/teaching"
         className="text-sm text-zinc-500 hover:text-orange-600"
       >
-        ← 返回教学模式
+        ← 返回课堂模式
       </Link>
 
       <div className="mt-3 flex items-center gap-3">

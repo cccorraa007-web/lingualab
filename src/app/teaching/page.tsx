@@ -87,8 +87,8 @@ export default function TeachingPage() {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
-      <h1 className="text-3xl font-bold tracking-tight text-zinc-900">教学模式</h1>
-      <p className="mt-2 text-zinc-600">创建或加入班级，开始班级阅读与口语教学。</p>
+      <h1 className="text-3xl font-bold tracking-tight text-zinc-900">课堂模式</h1>
+      <p className="mt-2 text-zinc-600">创建或加入班级，开始班级阅读与课堂学习。</p>
 
       <div className="mt-6 flex flex-wrap gap-3">
         <div className="flex-1 rounded-xl border border-orange-200 bg-orange-50/40 p-4">

@@ -51,7 +51,7 @@ export default function Home() {
                 href="/teaching"
                 className="w-full rounded-lg border border-zinc-200 bg-white px-6 py-3 text-base font-semibold text-zinc-700 transition-colors hover:bg-zinc-50 sm:w-auto"
               >
-                进入教学模式
+                进入课堂模式
               </Link>
             </div>
           ) : (
@@ -101,13 +101,13 @@ export default function Home() {
         </div>
       </section>
 
-      {/* 教学模式 */}
+      {/* 课堂模式 */}
       <section className="w-full bg-zinc-50">
         <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <span className="text-xs font-semibold uppercase tracking-widest text-emerald-600">
-                教学模式
+                课堂模式
               </span>
               <h2 className="mt-1 text-2xl font-bold tracking-tight text-zinc-900 sm:text-3xl">
                 融入真实课堂
@@ -120,7 +120,7 @@ export default function Home() {
               href="/teaching"
               className="rounded-lg border border-emerald-300 px-4 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-50"
             >
-              进入教学模式 →
+              进入课堂模式 →
             </Link>
           </div>
           <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
@@ -156,7 +156,7 @@ export default function Home() {
             href="/teaching"
             className="rounded-lg border border-zinc-200 bg-white px-6 py-3 text-base font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
           >
-            进入教学模式
+            进入课堂模式
           </Link>
         </div>
       </section>

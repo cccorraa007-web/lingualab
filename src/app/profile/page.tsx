@@ -299,7 +299,7 @@ function HelpTab() {
       <HelpSection title="LinguaLab 是什么">
         <p>
           LinguaLab 是一个面向中文母语者的外语学习平台，围绕「把读过的外语，变成能说的外语」这一核心思路，
-          提供<b>自学模式</b>与<b>教学模式</b>两种用法。目前支持<b>西班牙语</b>和<b>英语</b>两种目标语言。
+          提供<b>自学模式</b>与<b>课堂模式</b>两种用法。目前支持<b>西班牙语</b>和<b>英语</b>两种目标语言。
         </p>
         <p>
           界面均为中文；学习语言不再是账户级设置，而是<b>按素材自动识别</b>（导入的英语材料就按英语处理），
@@ -326,7 +326,7 @@ function HelpTab() {
         />
       </HelpSection>
 
-      <HelpSection title="教学模式">
+      <HelpSection title="课堂模式">
         <p className="font-semibold text-zinc-800">教师</p>
         <HelpItem
           name="班级管理"
@@ -356,7 +356,7 @@ function HelpTab() {
         <p className="pt-4 font-semibold text-zinc-800">学生</p>
         <HelpItem
           name="加入班级"
-          desc="在「教学模式」里输入邀请码加入班级，选择「以学生身份」，等待教师审批通过后即可开始。"
+          desc="在「课堂模式」里输入邀请码加入班级，选择「以学生身份」，等待教师审批通过后即可开始。"
         />
         <HelpItem
           name="必读文章"
