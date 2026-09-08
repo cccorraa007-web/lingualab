@@ -81,6 +81,11 @@ export default function ClassroomMembersPage() {
       <h1 className="mt-3 text-3xl font-bold tracking-tight text-zinc-900">
         班级成员
       </h1>
+      {myRole === "teacher" && (
+        <Link href={`/teaching/${params.id}/members/profiles`} className="mt-3 inline-block rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700">
+          查看学生档案
+        </Link>
+      )}
 
       {error && (
         <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
