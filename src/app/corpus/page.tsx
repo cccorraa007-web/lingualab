@@ -30,6 +30,8 @@ export default function CorpusPage() {
   const [title, setTitle] = useState("");
   const [importing, setImporting] = useState(false);
   const [showImport, setShowImport] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [fileInputKey, setFileInputKey] = useState(0);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
@@ -87,6 +89,30 @@ export default function CorpusPage() {
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setImporting(false);
+    }
+  }
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setError("");
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await apiFetch("/api/materials/upload", {
+        method: "POST",
+        body: fd,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "识别失败");
+      if (!title.trim()) setTitle(data.title || "");
+      setText(data.text || "");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setUploading(false);
+      setFileInputKey((k) => k + 1);
     }
   }
 
@@ -151,6 +177,22 @@ export default function CorpusPage() {
             placeholder="文章标题（可选，留空可稍后补填）"
             className="mb-3 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm"
           />
+          <div className="mb-3 flex flex-wrap items-center gap-3">
+            <label className="cursor-pointer rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-600 transition hover:border-orange-300 hover:text-orange-700">
+              <input
+                key={fileInputKey}
+                type="file"
+                accept=".docx,.pdf,image/*"
+                onChange={handleFile}
+                disabled={uploading}
+                className="hidden"
+              />
+              {uploading ? "识别中…" : "上传文件识别（Word / PDF / 图片）"}
+            </label>
+            <span className="text-xs text-zinc-400">
+              上传后自动识别为文字填入下方，可再编辑
+            </span>
+          </div>
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
@@ -161,7 +203,7 @@ export default function CorpusPage() {
           <div className="mt-3 flex items-center gap-3">
             <button
               type="submit"
-              disabled={importing}
+              disabled={importing || uploading}
               className="rounded-lg bg-orange-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-50"
             >
               {importing ? "AI 提取中…" : "导入并提取语料"}

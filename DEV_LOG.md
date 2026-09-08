@@ -445,3 +445,10 @@ LinguaLab 的核心价值主张：**把用户读过的材料，自动转化成�
 - 移除了按单篇素材点进去生成课件的入口（`library/[itemId]` 只保留查看批注/作答/分析）。
 - 添加素材时，已加入资料库的素材自动标注「已添加」并禁止重复勾选。
 - 新增单条素材删除：`DELETE /api/classrooms/[id]/library/items/[itemId]`，删除后该素材在「添加素材」处恢复可选，支持自由定制素材库。
+
+### 8.15 语料库支持文件上传识别
+
+- 新增 `POST /api/materials/upload`：上传附件自动识别为文字，支持 Word(.docx，`jszip` 解包提取 `word/document.xml` 文本)、PDF(`pdf-parse` 提取文字)、图片(阿里云 OCR `recognizeText`)。
+- 新增 `src/lib/extract/text.ts`（docx/pdf 文本提取）、`src/types/pdf-parse.d.ts`（类型声明）。
+- 语料库「导入文章」表单新增「上传文件识别」入口，识别结果自动填入标题与正文可再编辑，随后走原「导入并提取语料」AI 管线。
+- `next.config.ts` 增加 `serverExternalPackages: ["pdf-parse", "jszip"]`，避免 Turbopack 打包触发 pdf-parse 的 CLI 分支导致构建失败。

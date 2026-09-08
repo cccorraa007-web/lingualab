@@ -9,6 +9,7 @@ const nextConfig: NextConfig = {
     "*.natapp1.cc",
     "*.natapp.link",
   ],
+  serverExternalPackages: ["pdf-parse", "jszip"],
 };
 
 export default nextConfig;
