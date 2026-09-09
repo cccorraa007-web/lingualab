@@ -447,3 +447,51 @@
 - 选中时，笔记/高亮/批注/问答完整导入目标库/页。
 - 场景三：导入后自动生成关键词/用法/口语问题卡片，在资料库条目详情页可见。
 - `npm run lint`、`npm run build` 通过；迁移 SQL 放 `db/`，同步更新 `DEV_LOG.md`。
+
+---
+
+# 教师端「学生档案」重构（重点：报错修复 + 学生详情页 + 学情分析）
+
+> 用户实测反馈：教师进入「班级成员 → 学生档案」报错 `column reference "user_id" is ambiguous`，学生数据和学情分析统计都无法正常显示，需要重构。
+
+## 一、先修复报错（数据库函数）
+
+- 报错来自数据库聚合函数 `get_classroom_student_learning_stats`。
+- 我方已改好 `db/migrate_teacher_student_profiles.sql`（改为 `drop function if exists` + `create function`，函数内所有列都加了 `m.`/`x.` 前缀消除歧义）。
+- **请在 Supabase SQL Editor 重新执行一次 `db/migrate_teacher_student_profiles.sql`**，即可消除 `user_id is ambiguous`（旧的 `create or replace` 因返回类型不一致会失败，所以必须用 drop+create 版本）。
+
+## 二、「全班学生」改为「学生列表 → 学生详情页」
+
+### 现状
+- `src/app/teaching/[id]/members/profiles/page.tsx` 目前把每个学生的统计平铺成一个卡片，没有单独的学生详情页。
+
+### 要改什么
+1. 「全班学生」区域改为**可点击的学生列表**（每行：邮箱 + 简要摘要，点击进入详情页）。
+2. 新增学生详情页 `src/app/teaching/[id]/members/profiles/[userId]/page.tsx`，内容**类比学生模式下的「我的档案」**（`src/app/teaching/[id]/profile/page.tsx`），展示该学生的：
+   - 作业评分统计（已提交 / 按时 / 已批改 / 等级分布）。
+   - 平时作业情况（预习必读文章 + 课后作业的完成数）。
+   - 课外学习情况（自主阅读 / 口语 / 写作 / 错题本）。
+3. 数据复用：
+   - 作业统计：`GET /api/classrooms/[id]/assignments/stats`（教师态返回 `all_students`，按 `user_id` 找到该生）。
+   - 课外学习：`GET /api/classrooms/[id]/assignments/student-profiles`（返回 `profiles` 数组，按 `user_id` 找到该生）。
+   - 也可新增 `GET .../student-profiles/[userId]` 单生接口，返回更干净（你自己定）。
+
+## 三、「学情分析统计」重做（排名 + 全班学情分析）
+
+### 现状
+- 现在只是平铺各文章/作业的 `class_summary`，没有排名、没有聚合学情。
+
+### 要改什么（拆成两块）
+1. **全班作业完成情况排名**：
+   - 按所有学生的作业完成情况排名，标准 = ①是否按时提交 ②作业完成质量 ③老师评分/等级。
+   - 建议在 `GET /api/classrooms/[id]/assignments/stats` 里把排名分算得更细（当前 `rank_score = gradeAverage*0.6 + submissionRate*40`，需**显式纳入「按时提交率」这一维度**），并返回**完整排名列表**（现在只返回 `top_three`，要返回全班）。
+2. **全班整体学习情况学情分析**：
+   - 聚合两类信息：**学生提的问题**（`reading_annotations` 里学生的勾画/批注、学生对文章的提问）+ **学生的错误**（`reading_answers` 里被教师标记的错误、`assignment_submissions` 里的低分/反馈、错题本 `mistake_book`）。
+   - 用 AI（DeepSeek，可参考 `src/lib/ai/analysis.ts` 的 `analyzeReadingClass`）生成一段「全班整体学情分析」，输出：共性薄弱点、高频错误、常见疑问等。
+   - 新增接口（仅教师）`GET/POST /api/classrooms/[id]/learning-analysis`，可实时聚合生成（是否回写缓存你自己定）。
+
+## 完成标准
+- 重新执行迁移后「学生档案」不再报错，学生数据正常显示。
+- 「全班学生」→ 点击某学生 → 进入该生详情页（内容类比学生模式「我的档案」）。
+- 「学情分析统计」能显示：全班作业完成排名（按时 + 质量 + 评分）+ 全班整体学情分析（学生问题 + 错误）。
+- `npm run lint`、`npm run build` 通过，同步更新 `DEV_LOG.md`。
