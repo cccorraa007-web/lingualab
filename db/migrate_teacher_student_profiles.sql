@@ -1,5 +1,20 @@
--- 先删除旧版本，避免 create or replace 因返回类型/列不一致而失败（曾出现 session_type、user_id 歧义等旧版残留）
-drop function if exists public.get_classroom_student_learning_stats(uuid);
+-- 教师端「学生档案」聚合函数（彻底清理旧版后重建）
+-- 背景：线上旧版函数存在 session_type 引用、user_id 歧义等问题，
+-- 且可能有多重重载/不同返回类型，导致 create or replace 或简单 drop(uuid) 覆盖失败。
+-- 本文件先遍历删除所有同名重载（含级联依赖），再重建正确版本。
+
+do $$
+declare r record;
+begin
+  for r in
+    select p.proname as name, pg_get_function_identity_arguments(p.oid) as args
+    from pg_proc p
+    where p.pronamespace = 'public'::regnamespace
+      and p.proname = 'get_classroom_student_learning_stats'
+  loop
+    execute format('drop function if exists public.%I(%s) cascade', r.name, r.args);
+  end loop;
+end $$;
 
 create function public.get_classroom_student_learning_stats(p_classroom_id uuid)
 returns table (
