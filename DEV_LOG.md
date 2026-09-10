@@ -431,3 +431,7 @@ LinguaLab 的核心价值主张：**把用户读过的材料，自动转化成�
 - 新增 `get_classroom_student_learning_stats` 安全聚合函数：仅已审批教师可执行，只返回统计指标，不暴露学生作文、对话或错题原文。
 - 笔头作业详情新增「添加到备课资料库」；资料库保存来源引用，查看与生成课件时实时查询最新学生提交、OCR、教师反馈、等级和班级分析，不缓存旧业务快照。
 - 备课资料库详情支持展示笔头作业动态内容；班级主页已移除“建设中”文案。
+
+### 8.12.1 教师端学生档案函数修复
+
+- 修复 `get_classroom_student_learning_stats` 权限检查中的 `user_id` 列名歧义：为 `classroom_members` 增加明确别名并限定字段，避免与 `returns table` 的同名输出变量冲突。重新执行 `db/migrate_teacher_student_profiles.sql` 即可覆盖旧函数。
