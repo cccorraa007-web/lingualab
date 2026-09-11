@@ -56,6 +56,8 @@ export default function ClassroomAssignmentsPage() {
   const [pEndDate, setPEndDate] = useState("");
   const [pEndTime, setPEndTime] = useState(nowTime);
   const [publishing, setPublishing] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [fileInputKey, setFileInputKey] = useState(0);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -95,6 +97,30 @@ export default function ClassroomAssignmentsPage() {
     if (res.ok && d.material) {
       if (d.material.title) setPTitle(d.material.title);
       setPText(d.material.raw_text ?? "");
+    }
+  }
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setError("");
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await apiFetch("/api/materials/upload", {
+        method: "POST",
+        body: fd,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "识别失败");
+      if (!pTitle.trim()) setPTitle(data.title || "");
+      setPText(data.text || "");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setUploading(false);
+      setFileInputKey((k) => k + 1);
     }
   }
 
@@ -191,7 +217,7 @@ export default function ClassroomAssignmentsPage() {
 
         {myRole === "teacher" && showPublish && (
           <div className="mt-3 rounded-xl border border-orange-200 bg-orange-50/40 p-4">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <select
                 value=""
                 onChange={(e) => {
@@ -206,6 +232,17 @@ export default function ClassroomAssignmentsPage() {
                   </option>
                 ))}
               </select>
+              <label className="cursor-pointer rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-600 transition hover:border-orange-300 hover:text-orange-700">
+                <input
+                  key={fileInputKey}
+                  type="file"
+                  accept=".docx,.pdf,image/*"
+                  onChange={handleFile}
+                  disabled={uploading}
+                  className="hidden"
+                />
+                {uploading ? "识别中…" : "上传文件识别"}
+              </label>
             </div>
             <input
               value={pTitle}
@@ -216,7 +253,7 @@ export default function ClassroomAssignmentsPage() {
             <textarea
               value={pText}
               onChange={(e) => setPText(e.target.value)}
-              placeholder="粘贴文章正文（或从上方语料库选择）"
+              placeholder="粘贴文章正文，或从上方「语料库 / 上传文件」自动识别填入"
               rows={5}
               className="mt-2 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm"
             />
