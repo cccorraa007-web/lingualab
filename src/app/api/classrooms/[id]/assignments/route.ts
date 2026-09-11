@@ -87,8 +87,9 @@ export async function GET(
   if (submissionError) {
     return NextResponse.json({ error: submissionError.message }, { status: 500 });
   }
+  const studentAssignments = assignments.map((assignment) => Object.fromEntries(Object.entries(assignment).filter(([key]) => key !== "teacher_answer_paths" && key !== "teacher_answer_text")));
   return NextResponse.json({
-    assignments: await addMediaUrls(auth.client, assignments),
+    assignments: await addMediaUrls(auth.client, studentAssignments),
     submissions: await addMediaUrls(auth.client, submissions ?? []),
     my_role: role,
     server_now: new Date().toISOString(),

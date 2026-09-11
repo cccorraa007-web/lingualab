@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/auth";
+import ImportNotesDialog from "@/components/ui/ImportNotesDialog";
 
 interface Media { path: string; url: string; }
 interface Assignment { id: string; title: string; content: string; ends_at: string; media_urls: Media[]; class_summary?: string | null; }
@@ -22,6 +23,7 @@ export default function AssignmentDetailPage() {
   const [busy, setBusy] = useState(false); const [error, setError] = useState("");
   const [libraryState, setLibraryState] = useState<"idle" | "adding" | "added">("idle");
   const [reloadKey, setReloadKey] = useState(0);
+  const [dialog, setDialog] = useState<"library" | "polish" | null>(null);
 
   useEffect(() => {
     apiFetch(`/api/classrooms/${params.id}/assignments/${params.assignmentId}`).then(async (response) => {
@@ -42,16 +44,16 @@ export default function AssignmentDetailPage() {
     } catch (e) { setError(e instanceof Error ? e.message : "提交失败"); } finally { setBusy(false); }
   }
 
-  function sendToPolish() {
+  function sendToPolish(keepNotes: boolean) {
     if (!assignment || !submission?.feedback) return;
-    localStorage.setItem("writing-import", JSON.stringify({ title: assignment.title, essay: [submission.content, submission.ocr_text].filter(Boolean).join("\n\n"), rubric: submission.feedback }));
+    localStorage.setItem("writing-import", JSON.stringify({ title: assignment.title, essay: [submission.content, submission.ocr_text].filter(Boolean).join("\n\n"), rubric: keepNotes ? `${submission.feedback}\n\n[教师等级评分: ${submission.grade || "未评分"}]` : "" }));
     router.push("/polish");
   }
 
-  async function addToLibrary() {
+  async function addToLibrary(keepNotes: boolean) {
     setLibraryState("adding"); setError("");
     try {
-      const response = await apiFetch(`/api/classrooms/${params.id}/library/items`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ source: "assignment", source_id: params.assignmentId }) });
+      const response = await apiFetch(`/api/classrooms/${params.id}/library/items`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ source: "assignment", source_id: params.assignmentId, keep_notes: keepNotes }) });
       const data = await response.json(); if (!response.ok) throw new Error(data.error || "添加失败");
       setLibraryState("added");
     } catch (e) { setLibraryState("idle"); setError(e instanceof Error ? e.message : "添加失败"); }
@@ -60,8 +62,10 @@ export default function AssignmentDetailPage() {
   if (!assignment) return <div className="mx-auto max-w-4xl px-4 py-10 text-zinc-500">{error || "加载中…"}</div>;
   const submittedIds = new Set(submissions.map((item) => item.user_id));
   return <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
+    <ImportNotesDialog open={dialog === "library"} title="添加到备课资料库" options={[{ key: "keep_notes", label: "保留笔记与高亮（含教师批注、学生作答和班级分析）" }]} busy={libraryState === "adding"} onCancel={() => setDialog(null)} onConfirm={(values) => { setDialog(null); void addToLibrary(values.keep_notes); }} />
+    <ImportNotesDialog open={dialog === "polish"} title="加入写作润色" options={[{ key: "keep_notes", label: "保留老师的批注与等级评分", defaultChecked: true }]} onCancel={() => setDialog(null)} onConfirm={(values) => { setDialog(null); sendToPolish(values.keep_notes); }} />
     <Link href={`/teaching/${params.id}/assignments`} className="text-sm text-zinc-500 hover:text-orange-600">← 返回作业列表</Link>
-    <div className="mt-4 rounded-2xl border border-zinc-100 bg-white p-6"><div className="flex items-start justify-between gap-4"><div><h1 className="text-2xl font-bold text-zinc-900">{assignment.title}</h1><p className="mt-3 whitespace-pre-wrap leading-7 text-zinc-700">{assignment.content}</p></div>{role === "teacher" && <div className="flex shrink-0 flex-col gap-2"><Link href={`/teaching/${params.id}/assignments/${params.assignmentId}/analysis`} className="rounded-lg bg-orange-600 px-4 py-2 text-center text-sm font-semibold text-white">班级作答分析</Link><button onClick={addToLibrary} disabled={libraryState !== "idle"} className="rounded-lg border border-orange-200 px-4 py-2 text-sm font-semibold text-orange-700 disabled:opacity-60">{libraryState === "adding" ? "添加中…" : libraryState === "added" ? "已加入备课资料库" : "添加到备课资料库"}</button></div>}</div>
+    <div className="mt-4 rounded-2xl border border-zinc-100 bg-white p-6"><div className="flex items-start justify-between gap-4"><div><h1 className="text-2xl font-bold text-zinc-900">{assignment.title}</h1><p className="mt-3 whitespace-pre-wrap leading-7 text-zinc-700">{assignment.content}</p></div>{role === "teacher" && <div className="flex shrink-0 flex-col gap-2"><Link href={`/teaching/${params.id}/assignments/${params.assignmentId}/batch-review`} className="rounded-lg border border-orange-200 px-4 py-2 text-center text-sm font-semibold text-orange-700">一键批改</Link><Link href={`/teaching/${params.id}/assignments/${params.assignmentId}/analysis`} className="rounded-lg bg-orange-600 px-4 py-2 text-center text-sm font-semibold text-white">班级作答分析</Link><button onClick={() => setDialog("library")} disabled={libraryState !== "idle"} className="rounded-lg border border-orange-200 px-4 py-2 text-sm font-semibold text-orange-700 disabled:opacity-60">{libraryState === "adding" ? "添加中…" : libraryState === "added" ? "已加入备课资料库" : "添加到备课资料库"}</button></div>}</div>
       {assignment.media_urls?.length > 0 && <div className="mt-4 flex flex-wrap gap-2">{assignment.media_urls.map((m, i) => <a key={m.path} href={m.url} target="_blank" rel="noreferrer" className="rounded-lg border border-orange-200 px-3 py-2 text-sm text-orange-700">教师附件 {i + 1}</a>)}</div>}
     </div>
     {error && <div className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</div>}
@@ -69,7 +73,7 @@ export default function AssignmentDetailPage() {
       <StudentGroup title="已提交" recipients={recipients.filter((r) => submittedIds.has(r.user_id))} submissions={submissions} classroomId={params.id} assignmentId={params.assignmentId} />
       <StudentGroup title="未提交" recipients={recipients.filter((r) => !submittedIds.has(r.user_id))} submissions={[]} classroomId={params.id} assignmentId={params.assignmentId} />
     </div> : <section className="mt-6 rounded-2xl border border-zinc-100 bg-white p-6">
-      {submission && <div className="mb-4 rounded-xl bg-zinc-50 p-4 text-sm text-zinc-600"><p>提交时间：{new Date(submission.submitted_at).toLocaleString("zh-CN")}</p>{submission.grade && <p className="mt-1 font-semibold text-orange-700">评分：{submission.grade}</p>}{submission.feedback && <p className="mt-2 whitespace-pre-wrap">教师反馈：{submission.feedback}</p>}{submission.media_urls?.length > 0 && <div className="mt-2 flex gap-2">{submission.media_urls.map((m, i) => <a key={m.path} href={m.url} target="_blank" rel="noreferrer" className="text-orange-700">附件 {i + 1}</a>)}</div>}{submission.feedback && <button onClick={sendToPolish} className="mt-3 rounded-lg bg-orange-600 px-4 py-2 font-semibold text-white">加入写作润色</button>}</div>}
+      {submission && <div className="mb-4 rounded-xl bg-zinc-50 p-4 text-sm text-zinc-600"><p>提交时间：{new Date(submission.submitted_at).toLocaleString("zh-CN")}</p>{submission.grade && <p className="mt-1 font-semibold text-orange-700">评分：{submission.grade}</p>}{submission.feedback && <p className="mt-2 whitespace-pre-wrap">教师反馈：{submission.feedback}</p>}{submission.media_urls?.length > 0 && <div className="mt-2 flex gap-2">{submission.media_urls.map((m, i) => <a key={m.path} href={m.url} target="_blank" rel="noreferrer" className="text-orange-700">附件 {i + 1}</a>)}</div>}{submission.feedback && <button onClick={() => setDialog("polish")} className="mt-3 rounded-lg bg-orange-600 px-4 py-2 font-semibold text-white">加入写作润色</button>}</div>}
       <textarea value={content} onChange={(e) => setContent(e.target.value)} rows={9} maxLength={20000} placeholder="输入作业正文" className="w-full rounded-xl border border-zinc-200 p-4 text-sm leading-7" />
       <input type="file" multiple accept="image/*,audio/*,video/mp4,video/webm,application/pdf" onChange={(e) => setFiles(Array.from(e.target.files ?? []).slice(0, 5))} className="mt-3 block w-full text-sm text-zinc-500" />
       <button onClick={submit} disabled={busy} className="mt-3 rounded-lg bg-orange-600 px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50">{busy ? "提交中…" : submission ? "更新提交" : "提交作业"}</button>

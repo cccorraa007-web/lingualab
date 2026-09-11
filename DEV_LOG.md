@@ -468,3 +468,11 @@ LinguaLab 的核心价值主张：**把用户读过的材料，自动转化成�
 ### 8.18 口译 ASR 修复
 
 - 口译练习（`InterpretingPractice`）此前仍用 `MediaRecorder` 输出 WebM 容器却按 `format=opus` 发送，导致 `NO_VALID_AUDIO_ERROR`。改为 `AudioContext` + `ScriptProcessor` 采集 16kHz PCM 并封装 WAV，按 `format=wav` 发送，与口语练习一致。
+
+### 8.19 一键批改与导入笔记选项
+
+- 新增教师专属一键批改页面与 API：参考答案存入 `assignment-files/{assignment_id}/teacher_answer/`，图片 OCR 后与全部学生提交交由 DeepSeek 逐题对照；AI 结果先由教师编辑确认，再复用等级批改接口逐份采纳。
+- 补充教师答案字段及 Storage 隔离策略；学生作业列表和详情接口显式移除教师答案路径与识别文本，避免答案泄露。
+- 新增统一 `ImportNotesDialog`，用于教师将阅读/作业加入备课库、学生将已批改作业加入写作润色、学生将阅读加入个人语料库；默认选项按场景区分。
+- 备课库可按导入时选择保存阅读批注、问答、学生提交与班级分析元数据；个人语料保留的笔记/问答会参与关键词、表达与口语卡片生成。
+- 新增迁移：`migrate_assignments_teacher_answer.sql`、`migrate_import_metadata.sql`。参考答案支持图片、DOCX、文本型 PDF 和扫描型 PDF：文档优先在服务端本地提取文字，扫描 PDF 逐页渲染后复用现有阿里云 OCR。

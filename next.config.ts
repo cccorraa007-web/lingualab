@@ -1,6 +1,13 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  serverExternalPackages: [
+    "pdf-parse",
+    "jszip",
+    "@hyzyla/pdfium",
+    "sharp",
+    "mammoth",
+  ],
   images: {
     remotePatterns: [{ protocol: "https", hostname: "*.supabase.co" }],
   },
@@ -9,7 +16,6 @@ const nextConfig: NextConfig = {
     "*.natapp1.cc",
     "*.natapp.link",
   ],
-  serverExternalPackages: ["pdf-parse", "jszip"],
 };
 
 export default nextConfig;

@@ -56,6 +56,27 @@ async function resolveTitle(
   return null;
 }
 
+async function buildImportMetadata(supabase: SupabaseClient, source: string, sourceId: string) {
+  if (source === "reading") {
+    const [{ data: annotations }, { data: questions }, { data: reading }] = await Promise.all([
+      supabase.from("reading_annotations").select("user_id,text,color,note,created_at").eq("reading_id", sourceId),
+      supabase.from("reading_questions").select("id,sentence,question").eq("reading_id", sourceId),
+      supabase.from("classroom_readings").select("class_summary,class_analysis_at").eq("id", sourceId).maybeSingle(),
+    ]);
+    const questionIds = (questions ?? []).map((item) => item.id);
+    const { data: answers } = questionIds.length ? await supabase.from("reading_answers").select("user_id,question_id,answer,feedback").in("question_id", questionIds) : { data: [] };
+    return { annotations: annotations ?? [], questions: questions ?? [], student_answers: answers ?? [], class_analysis: reading?.class_summary ?? null, imported_at: new Date().toISOString() };
+  }
+  if (source === "assignment") {
+    const [{ data: submissions }, { data: assignment }] = await Promise.all([
+      supabase.from("assignment_submissions").select("user_id,content,ocr_text,feedback,grade,submitted_at").eq("assignment_id", sourceId),
+      supabase.from("classroom_assignments").select("class_summary,class_analysis_at").eq("id", sourceId).maybeSingle(),
+    ]);
+    return { student_answers: submissions ?? [], class_analysis: assignment?.class_summary ?? null, imported_at: new Date().toISOString() };
+  }
+  return {};
+}
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -98,7 +119,7 @@ export async function POST(
     return NextResponse.json({ error: "只有教师能添加备课素材" }, { status: 403 });
   }
 
-  let body: { source?: unknown; source_id?: unknown };
+  let body: { source?: unknown; source_id?: unknown; keep_notes?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -106,6 +127,7 @@ export async function POST(
   }
 
   const source = body.source;
+  const keepNotes = body.keep_notes === true;
   const sourceId = typeof body.source_id === "string" ? body.source_id : "";
   if (
     source !== "material" &&
@@ -123,6 +145,7 @@ export async function POST(
     return NextResponse.json({ error: "素材不存在或无权访问" }, { status: 404 });
   }
 
+  const metadata = keepNotes ? await buildImportMetadata(supabase, source, sourceId) : {};
   const { data, error } = await supabase
     .from("lesson_library")
     .upsert(
@@ -132,6 +155,8 @@ export async function POST(
         source,
         source_id: sourceId,
         title,
+        keep_notes: keepNotes,
+        metadata,
       },
       { onConflict: "user_id,classroom_id,source,source_id" },
     )
