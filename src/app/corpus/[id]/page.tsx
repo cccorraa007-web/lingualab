@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { topicName } from "@/lib/topics";
 import { apiFetch } from "@/lib/auth";
+import DictionaryPopover from "@/components/DictionaryPopover";
 
 interface CardExtra {
   pos?: string;
@@ -47,6 +48,7 @@ interface Material {
   tags: string[];
   cefr_level: string | null;
   translation?: string | null;
+  lang: string;
   created_at: string;
 }
 
@@ -223,6 +225,7 @@ export default function MaterialDetailPage() {
   const [cardForm, setCardForm] = useState(false);
   const [cardCategory, setCardCategory] = useState("expression");
   const [cardZh, setCardZh] = useState("");
+  const [dict, setDict] = useState<{ word: string; x: number; y: number } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -559,6 +562,17 @@ export default function MaterialDetailPage() {
             </button>
             <button
               onClick={() => {
+                setDict({ word: toolbar.text, x: toolbar.x, y: toolbar.y });
+                setToolbar(null);
+                setNoteInput(false);
+                setCardForm(false);
+              }}
+              className="rounded-md px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50"
+            >
+              查询释义
+            </button>
+            <button
+              onClick={() => {
                 setCardForm(true);
                 setNoteInput(false);
               }}
@@ -621,6 +635,16 @@ export default function MaterialDetailPage() {
             </div>
           )}
         </div>
+      )}
+
+      {dict && material && (
+        <DictionaryPopover
+          word={dict.word}
+          lang={material.lang === "en" ? "en" : "es"}
+          x={dict.x}
+          y={dict.y}
+          onClose={() => setDict(null)}
+        />
       )}
     </div>
   );

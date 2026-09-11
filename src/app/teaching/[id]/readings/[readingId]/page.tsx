@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/auth";
 import ImportNotesDialog from "@/components/ui/ImportNotesDialog";
+import DictionaryPopover from "@/components/DictionaryPopover";
 
 interface Reading {
   id: string;
@@ -127,6 +128,8 @@ export default function ReadingPage() {
   const [addedToLibrary, setAddedToLibrary] = useState(false);
   const [error, setError] = useState("");
   const [importDialog, setImportDialog] = useState<"corpus" | "library" | null>(null);
+  const [readingLang, setReadingLang] = useState<"es" | "en">("es");
+  const [dict, setDict] = useState<{ word: string; x: number; y: number } | null>(null);
 
   useEffect(() => {
     apiFetch(`/api/classrooms/${params.id}/readings/${params.readingId}`)
@@ -143,6 +146,7 @@ export default function ReadingPage() {
         setAnswers(d.answers ?? []);
         setMyRole(d.my_role ?? "student");
         setAddedToCorpus(d.added_to_corpus ?? false);
+        setReadingLang(d.lang === "en" ? "en" : "es");
       })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
   }, [params.id, params.readingId]);
@@ -552,6 +556,17 @@ export default function ReadingPage() {
             >
               批注
             </button>
+            <button
+              onClick={() => {
+                setDict({ word: toolbar.text, x: toolbar.x, y: toolbar.y });
+                setToolbar(null);
+                setNoteInput(false);
+                setQuestionInput(false);
+              }}
+              className="rounded-md px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50"
+            >
+              查询释义
+            </button>
             {isTeacher && (
               <button
                 onClick={() => {
@@ -609,6 +624,16 @@ export default function ReadingPage() {
             </div>
           )}
         </div>
+      )}
+
+      {dict && (
+        <DictionaryPopover
+          word={dict.word}
+          lang={readingLang}
+          x={dict.x}
+          y={dict.y}
+          onClose={() => setDict(null)}
+        />
       )}
     </div>
   );

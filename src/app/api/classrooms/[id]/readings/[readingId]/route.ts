@@ -33,7 +33,7 @@ export async function GET(
     return NextResponse.json({ error: "你不是该班级成员" }, { status: 403 });
   }
 
-  const [{ data: reading, error: rErr }, { data: annotations, error: aErr }, { data: existingMaterial }, { data: questions, error: qErr }] =
+  const [{ data: reading, error: rErr }, { data: annotations, error: aErr }, { data: existingMaterial }, { data: questions, error: qErr }, { data: classroom }] =
     await Promise.all([
       supabase
         .from("classroom_readings")
@@ -58,6 +58,11 @@ export async function GET(
         .select("*")
         .eq("reading_id", readingId)
         .order("created_at", { ascending: true }),
+      supabase
+        .from("classrooms")
+        .select("lang")
+        .eq("id", id)
+        .maybeSingle(),
     ]);
   if (rErr || !reading) {
     return NextResponse.json({ error: "文章不存在" }, { status: 404 });
@@ -123,5 +128,6 @@ export async function GET(
     answers,
     added_to_corpus: addedToCorpus,
     my_role: role,
+    lang: classroom?.lang === "en" ? "en" : "es",
   });
 }
