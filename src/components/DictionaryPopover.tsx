@@ -47,12 +47,19 @@ export default function DictionaryPopover({
     };
   }, [word, lang]);
 
-  const left = Math.max(8, Math.min(x - 160, window.innerWidth - 336));
+  useEffect(() => {
+    const onScroll = () => onClose();
+    window.addEventListener("scroll", onScroll);
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [onClose]);
+
+  const halfWidth = 160;
+  const left = Math.max(halfWidth, Math.min(x, window.innerWidth - halfWidth));
 
   return (
     <div
       className="fixed z-50 w-80 -translate-x-1/2 rounded-2xl border border-orange-200 bg-white shadow-xl"
-      style={{ left, top: Math.max(8, y + 12), maxWidth: "calc(100vw - 16px)" }}
+      style={{ left, top: Math.max(8, y + 12) }}
     >
       <div className="flex items-start justify-between gap-2 border-b border-zinc-100 px-4 py-3">
         <div className="min-w-0">
