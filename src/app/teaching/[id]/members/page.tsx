@@ -8,6 +8,7 @@ import { apiFetch } from "@/lib/auth";
 interface Member {
   id: string;
   email: string | null;
+  username: string | null;
   role: "teacher" | "student";
   status: string;
 }
@@ -103,7 +104,12 @@ export default function ClassroomMembersPage() {
                 className="flex items-center justify-between rounded-xl border border-zinc-100 bg-white p-4"
               >
                 <div>
-                  <p className="text-sm font-medium text-zinc-800">{m.email}</p>
+                  <p className="text-sm font-medium text-zinc-800">
+                    {m.username || m.email}
+                  </p>
+                  {m.username && m.email && (
+                    <p className="text-xs text-zinc-400">{m.email}</p>
+                  )}
                   <p className="text-xs text-zinc-400">
                     申请成为{ROLE_LABEL[m.role] ?? m.role}
                   </p>
@@ -147,7 +153,12 @@ export default function ClassroomMembersPage() {
                 >
                   {ROLE_LABEL[m.role] ?? m.role}
                 </span>
-                <p className="text-sm font-medium text-zinc-800">{m.email}</p>
+                <p className="text-sm font-medium text-zinc-800">
+                  {m.username || m.email}
+                </p>
+                {m.username && m.email && (
+                  <p className="text-xs text-zinc-400">{m.email}</p>
+                )}
               </div>
               {myRole === "teacher" && m.role === "student" && (
                 <button

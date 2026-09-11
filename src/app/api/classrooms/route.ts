@@ -85,6 +85,7 @@ export async function POST(request: Request) {
     classroom_id: classroom.id,
     user_id: auth.user.id,
     email: auth.user.email ?? null,
+    username: auth.user.username ?? null,
     role,
     status: "approved",
   });

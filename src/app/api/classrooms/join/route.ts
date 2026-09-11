@@ -50,6 +50,7 @@ export async function POST(request: Request) {
     classroom_id: classroom.id,
     user_id: auth.user.id,
     email: auth.user.email ?? null,
+    username: auth.user.username ?? null,
     role,
     status: "pending",
   });
@@ -60,7 +61,7 @@ export async function POST(request: Request) {
   await notifyTeacherJoinRequest(
     supabase,
     classroom.id,
-    auth.user.email ?? "新成员",
+    auth.user.username ?? auth.user.email ?? "新成员",
   );
 
   return NextResponse.json({

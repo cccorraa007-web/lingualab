@@ -5,6 +5,7 @@ import { verifySupabaseJwt } from "./jwt";
 export interface AuthUser {
   id: string;
   email?: string | null;
+  username?: string | null;
 }
 
 export async function getUserClient(
@@ -21,6 +22,7 @@ export async function getUserClient(
 
   let userId: string | undefined;
   let email: string | undefined | null;
+  let username: string | undefined | null;
 
   const jwtSecret = process.env.SUPABASE_JWT_SECRET;
   if (jwtSecret) {
@@ -28,6 +30,7 @@ export async function getUserClient(
     if (claims) {
       userId = claims.sub;
       email = claims.email;
+      username = claims.username;
     }
   }
 
@@ -37,6 +40,7 @@ export async function getUserClient(
     if (error || !data.user) return null;
     userId = data.user.id;
     email = data.user.email;
+    username = (data.user.user_metadata?.username as string | undefined) ?? null;
   }
 
   const client = createClient(url, anonKey, {
@@ -48,6 +52,7 @@ export async function getUserClient(
     user: {
       id: userId,
       email,
+      username,
     },
   };
 }

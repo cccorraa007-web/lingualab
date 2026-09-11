@@ -3,6 +3,7 @@ import { createHmac, timingSafeEqual } from "crypto";
 export interface JwtClaims {
   sub: string;
   email?: string;
+  username?: string;
 }
 
 export function verifySupabaseJwt(token: string, secret: string): JwtClaims | null {
@@ -25,6 +26,11 @@ export function verifySupabaseJwt(token: string, secret: string): JwtClaims | nu
     return {
       sub: payload.sub,
       email: typeof payload.email === "string" ? payload.email : undefined,
+      username:
+        payload.user_metadata &&
+        typeof payload.user_metadata.username === "string"
+          ? payload.user_metadata.username
+          : undefined,
     };
   } catch {
     return null;

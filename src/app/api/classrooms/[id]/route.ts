@@ -40,7 +40,7 @@ export async function GET(
 
   const { data: members } = await supabase
     .from("classroom_members")
-    .select("id, email, role, status, created_at")
+    .select("id, email, username, role, status, created_at")
     .eq("classroom_id", id)
     .eq("status", "approved")
     .order("created_at", { ascending: true });
@@ -49,7 +49,7 @@ export async function GET(
   if (myRole === "teacher") {
     const { data: p } = await supabase
       .from("classroom_members")
-      .select("id, email, role, status, created_at")
+      .select("id, email, username, role, status, created_at")
       .eq("classroom_id", id)
       .eq("status", "pending")
       .order("created_at", { ascending: true });
