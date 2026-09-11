@@ -468,3 +468,10 @@ LinguaLab 的核心价值主张：**把用户读过的材料，自动转化成�
 ### 8.18 口译 ASR 修复
 
 - 口译练习（`InterpretingPractice`）此前仍用 `MediaRecorder` 输出 WebM 容器却按 `format=opus` 发送，导致 `NO_VALID_AUDIO_ERROR`。改为 `AudioContext` + `ScriptProcessor` 采集 16kHz PCM 并封装 WAV，按 `format=wav` 发送，与口语练习一致。
+
+### 8.19 教师端学生档案重构与全班学情分析
+
+- 教师端“全班学生”改为可点击列表，新增单生详情页，集中展示作业提交、按时情况、等级分布、预习完成和课外阅读/口语/写作/错题统计。
+- 作业排行明确拆分为完成度 35%、按时率 25%、教师评分质量 40%，教师端返回并展示全班完整排名；学生端仍只收到原有前三名必要字段。
+- 新增仅教师可访问的 `GET/POST /api/classrooms/[id]/learning-analysis`：动态汇总学生预习提问、教师作业反馈与错题模式，由 DeepSeek 归纳共性薄弱点、高频错误和常见疑问。
+- 新增 `db/migrate_classroom_learning_analysis.sql`，以 `security definer` 函数在教师班级权限校验后提供错题证据；接口和 AI 输出均不包含学生身份。

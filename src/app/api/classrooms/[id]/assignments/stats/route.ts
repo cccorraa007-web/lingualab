@@ -61,8 +61,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     const submitted = mine.length + doneReadings;
     const submissionRate = totalCount ? submitted / totalCount : 0;
-    const rank_score = gradeAverage * 0.6 + submissionRate * 40;
-    return { user_id: student.user_id, email: student.email ?? "学生", submitted, total: totalCount, on_time: onTime, done_readings: doneReadings, grade_distribution: Object.fromEntries(grades.map((grade) => [grade, grades.filter((g) => g === grade).length])), rank_score };
+    const onTimeRate = assignmentIds.length ? onTime / assignmentIds.length : 0;
+    const qualityRate = gradeAverage / 100;
+    // 完成度、按时率和教师评分分别计分，避免“交了但迟交”与按时完成同分。
+    const rank_score = submissionRate * 35 + onTimeRate * 25 + qualityRate * 40;
+    return { user_id: student.user_id, email: student.email ?? "学生", submitted, total: totalCount, on_time: onTime, assignment_total: assignmentIds.length, submission_rate: submissionRate, on_time_rate: onTimeRate, grade_average: gradeAverage, done_readings: doneReadings, grade_distribution: Object.fromEntries(grades.map((grade) => [grade, grades.filter((g) => g === grade).length])), rank_score };
   }).sort((a, b) => b.rank_score - a.rank_score);
 
   const self = stats.find((item) => item.user_id === auth.user.id) ?? null;
@@ -78,5 +81,5 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       ...(assignmentAnalysis ?? []).map((item) => ({ type: "课后作业" as const, title: item.title, summary: item.class_summary ?? "", analyzed_at: item.class_analysis_at })),
     ].sort((a, b) => new Date(b.analyzed_at ?? 0).getTime() - new Date(a.analyzed_at ?? 0).getTime());
   }
-  return NextResponse.json({ self, top_three, total_assignments: totalCount, all_students: role === "teacher" ? stats : undefined, analyses: role === "teacher" ? analyses : undefined });
+  return NextResponse.json({ self, top_three, total_assignments: totalCount, all_students: role === "teacher" ? stats : undefined, ranking: role === "teacher" ? stats : undefined, analyses: role === "teacher" ? analyses : undefined });
 }
