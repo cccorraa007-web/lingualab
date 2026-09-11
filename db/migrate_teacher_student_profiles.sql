@@ -27,9 +27,9 @@ language plpgsql security definer set search_path = public
 as $$
 begin
   if not exists (
-    select 1 from public.classroom_members
-    where classroom_id = p_classroom_id and user_id = auth.uid()
-      and role = 'teacher' and status = 'approved'
+    select 1 from public.classroom_members cm
+    where cm.classroom_id = p_classroom_id and cm.user_id = auth.uid()
+      and cm.role = 'teacher' and cm.status = 'approved'
   ) then raise exception 'forbidden'; end if;
 
   return query
