@@ -1,22 +1,16 @@
 import { NextResponse } from "next/server";
-import { recognizeText } from "@/lib/aliyun/ocr";
 import { compareAssignmentAnswers } from "@/lib/ai/batch-review";
+import { extractDocumentText } from "@/lib/document-text";
 import { getUserClient, unauthorized } from "@/lib/supabase/server-auth";
 import { getClassroomRole } from "../../_auth";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 300;
 const BUCKET = "assignment-files";
 const MAX_FILES = 5;
 const MAX_BYTES = 25 * 1024 * 1024;
 const ALLOWED = new Set(["image/png", "image/jpeg", "image/webp", "image/gif", "application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]);
 const safeName = (name: string) => name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-100) || "answer";
-
-async function ocrBlob(blob: Blob): Promise<string> {
-  // 阿里云当前通用多语言 OCR 接口只接受图片；不伪造 PDF/DOCX 识别结果。
-  if (!blob.type.startsWith("image/")) throw new Error(`暂不支持直接识别 ${blob.type || "该格式"}，请将 PDF/DOCX 转成图片后上传`);
-  return (await recognizeText(Buffer.from(await blob.arrayBuffer()).toString("base64"))).text.trim();
-}
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string; assignmentId: string }> }) {
   const auth = await getUserClient(request);
@@ -39,7 +33,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         const { error } = await auth.client.storage.from(BUCKET).upload(path, file, { contentType: file.type, upsert: false });
         if (error) throw new Error(error.message);
         paths.push(path);
-        referenceParts.push(await ocrBlob(file));
+        referenceParts.push(await extractDocumentText(file, file.name));
       }
     } else if (assignment.teacher_answer_text) referenceParts.push(assignment.teacher_answer_text);
     else return NextResponse.json({ error: "请上传参考答案" }, { status: 400 });
@@ -52,7 +46,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       const attachmentTexts: string[] = [];
       if (!submission.ocr_text) for (const path of (submission.media_paths ?? []) as string[]) {
         const { data } = await auth.client.storage.from(BUCKET).download(path);
-        if (data?.type.startsWith("image/")) { const text = await ocrBlob(data); if (text) attachmentTexts.push(text); }
+        if (data) { const text = await extractDocumentText(data, path); if (text) attachmentTexts.push(text); }
       }
       students.push({ student_id: submission.user_id, answer: [submission.content, submission.ocr_text, ...attachmentTexts].filter(Boolean).join("\n\n") });
     }

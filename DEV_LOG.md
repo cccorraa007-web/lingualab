@@ -438,4 +438,4 @@ LinguaLab 的核心价值主张：**把用户读过的材料，自动转化成�
 - 补充教师答案字段及 Storage 隔离策略；学生作业列表和详情接口显式移除教师答案路径与识别文本，避免答案泄露。
 - 新增统一 `ImportNotesDialog`，用于教师将阅读/作业加入备课库、学生将已批改作业加入写作润色、学生将阅读加入个人语料库；默认选项按场景区分。
 - 备课库可按导入时选择保存阅读批注、问答、学生提交与班级分析元数据；个人语料保留的笔记/问答会参与关键词、表达与口语卡片生成。
-- 新增迁移：`migrate_assignments_teacher_answer.sql`、`migrate_import_metadata.sql`。现有 OCR 只可靠接受图片，PDF/DOCX 入口保留并返回明确转换提示，待确定文档解析服务后接通原生解析。
+- 新增迁移：`migrate_assignments_teacher_answer.sql`、`migrate_import_metadata.sql`。参考答案支持图片、DOCX、文本型 PDF 和扫描型 PDF：文档优先在服务端本地提取文字，扫描 PDF 逐页渲染后复用现有阿里云 OCR。

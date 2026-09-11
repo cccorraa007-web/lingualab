@@ -2,6 +2,7 @@
   "name": "vibe_coding_project_1",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@11.19.0",
   "engines": {
     "node": ">=20.9.0"
   },
@@ -13,12 +14,15 @@
     "check:licenses": "node scripts/check-licenses.mjs"
   },
   "dependencies": {
+    "@hyzyla/pdfium": "2.1.8",
     "@supabase/supabase-js": "^2.112.3",
     "docx": "^9.7.1",
+    "mammoth": "1.12.2",
     "next": "16.3.1",
     "pptxgenjs": "^4.0.1",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "sharp": "0.35.4"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
